@@ -9,6 +9,8 @@ MODULE tstgcd;
 
   (*****(**)*****(*fejwofhuwifw*)()()()()(**)lololololol*)
 
+  123H 1234 12A34BCD1H 1H 123A
+
   PROCEDURE gcd(m, n: INTEGER): INTEGER;
   BEGIN
     WHILE m # n DO

@@ -2,9 +2,8 @@
 
 
 
-// TODO
-//		-- scientific notation reals ---- should be able to abuse numdigs (just decimals, then add intval with the 10^numdigs, then adjust numdigs)
-//		-- hex ints
+// TODO 
+//		ish ?? -- scientific notation reals ---- should be able to abuse numdigs (just decimals, then add intval with the 10^numdigs, then adjust numdigs)
 
 
 typedef enum { false, true } bool;
@@ -18,7 +17,7 @@ const int idbuffsize = 16;
 
 typedef enum {
 	BOOLEAN_SYM, CHAR_SYM, FALSE_SYM, TRUE_SYM, NEW_SYM,
-	REAL_SYM, INTEGER_SYM, ARRAY_SYM, IMPORT_SYM, THEN_SYM, BEGIN_SYM, IN_SYM,
+	REAL_SYM, INTEGER_SYM, HEXINT_SYM, ARRAY_SYM, IMPORT_SYM, THEN_SYM, BEGIN_SYM, IN_SYM,
 	TO_SYM, BY_SYM, IS_SYM, CASE_SYM, MOD_SYM, TYPE_SYM, CONST_SYM,
 	MODULE_SYM, UNTIL_SYM, DIV_SYM, NIL_SYM, VAR_SYM, DO_SYM, OF_SYM,
 	WHILE_SYM, ELSE_SYM, OR_SYM, ELSIF_SYM, POINTER_SYM, END_SYM, 
@@ -49,6 +48,8 @@ int intval; // value of current int being read
 int decimals;
 int numdigs;
 
+char hexBuff[ 256]; // let's make the hex numbers have a limit of 256 digs
+
 int inptr;
 int symptr;
 int linelen = 0;
@@ -58,9 +59,11 @@ int strlength = 0;
 
 void InitErrMsgs() {
 	int i;
-	for( i = 0; i < 256; i ++) 
+	for( i = 0; i < 256; ++ i) 
 		errmsg[ i][ 0] = "\0";
 
+	errmsg[ 10][ 0] = "Error in general number format";
+	errmsg[ 16][ 0] = "Error in hex number formatting";
 	errmsg[ 30][ 0] = "Number too large";
 	errmsg[ 39][ 0] = "39";
 	errmsg[ 50][ 0] = "String delimiter missing";
@@ -111,6 +114,7 @@ void InitSymNames() {
 	symname[       NEW_SYM][ 0] = "NEW_SYM";
 	symname[      REAL_SYM][ 0] = "REAL_SYM";
 	symname[   INTEGER_SYM][ 0] = "INTEGER_SYM";
+	symname[    HEXINT_SYM][ 0] = "HEXINT_SYM";
 	symname[     ARRAY_SYM][ 0] = "ARRAY_SYM";
 	symname[    IMPORT_SYM][ 0] = "IMPORT_SYM";
 	symname[      THEN_SYM][ 0] = "THEN_SYM";
@@ -279,9 +283,10 @@ void InitCompile() {
 }
 
 void error( int eNum) {
-	fputs( "\n", stdout);
+	fputs( "------------------------------------\n", stdout);
 	fputs( errmsg[ eNum][ 0], stdout);
-	fputs( "\n", stdout);
+	fputs( "\n------------------------------------\n", stdout);
+	// sym = invalid_sym;
 }
 
 
@@ -305,6 +310,10 @@ bool inLetters( char c) {
 
 bool inDigits( char c) {
 	return c >= '0' && c <= '9';
+}
+
+bool inHexDigits( char c) {
+	return (c >= 'A' && c <= 'F') || inDigits( c);
 }
 
 void getLine() {
@@ -431,6 +440,30 @@ void scanident() {
 // 	}
 // }
 
+int rebuffHex( int dec) { // returns index to keep adding to
+	int i, j;
+	char temp[ 256];
+	for( i = 0; i < 256; ++ i) {
+		hexBuff[ i] = '\0';
+		temp[ i] = '\0';
+	}
+
+	i = 0;
+	do {
+		int curDig = dec%10;
+		temp[ i] = (char) (curDig + (int)('0'));
+
+		dec = dec/10;
+		++i;
+	} while( dec != 0);
+
+	// now need to reverse the array
+	for( j = i - 1; j >= 0; -- j) 
+		hexBuff[ (i - 1) - j] = temp[ j];
+
+	return i;
+}
+
 void scannum() {
 	sym = INTEGER_SYM;
 
@@ -453,7 +486,7 @@ void scannum() {
 		// look at next char but don't actually process it
 		if ( inptr >= linelen) {
 			// then . was the last char on the line and it's broken
-			fputs( "Error in number format!!\n", stdout);
+			error( 10);
 			return;
 		}
 		// ok, then the . wasn't the last char
@@ -483,8 +516,36 @@ void scannum() {
 			nextchar();
 		}
 		else {
-			fputs( "Error in number format!!!\n", stdout);
+			error( 10); // error in number format
 		}
+	}
+	else if( inHexDigits( ch)) {
+		sym = HEXINT_SYM;
+		// hex numbers are dig dig* hex hex* H
+		// works b/c decimals digs count as hex
+
+		// first convert the int you have from hex to dec, since we're storing in dec
+		// actually i take it back, let's store hex numbers as 
+		// char arrays, then we can print them as hex for output
+		int hexInd = rebuffHex( intval); 
+
+		// then, hexInd stores the end of the current int so you can 
+		// keep adding to the buffer
+		while( inHexDigits( ch)) {
+			hexBuff[ hexInd] = ch;
+			++ hexInd;
+			nextchar();
+		}
+
+		if( ch != 'H') 
+			error( 16); // something wrong with the hex
+		else 
+			nextchar(); // get rid of the H
+	} else if( ch == 'H') {
+		// then it was a hex number with no letter parts
+		rebuffHex( intval);
+		sym = HEXINT_SYM;
+		nextchar();
 	}
 
 }
@@ -543,7 +604,7 @@ void idrelop() { // this will be >= or <=
 float expo(float base, int exp) {
 	float res = base;
 	int i;
-	for ( i = 0; i < exp; i ++)
+	for ( i = 0; i < exp; ++ i)
 		res *= base;
 	return res;
 }
@@ -563,6 +624,10 @@ void writesym() {
 			break;
 		case INTEGER_SYM: 
 			printf( ": %d", intval);
+			break;
+		case HEXINT_SYM: 
+			fputs(": ", stdout);
+			fputs( hexBuff, stdout);
 			break;
 		case REAL_SYM:
 			printf( ": %f", (intval + decimals/(expo(10.0f, numdigs))));
@@ -688,6 +753,12 @@ int main( int argc, char **argv) {
 	   if ( ch != EOF)
 	   	writesym();
 	}
+
+	// int dec = 1234;
+	// rebuffHex(dec);
+
+	// fputs( hexBuff, stdout);
+	
 
    // if (inUppercase('C') && inUppercase('A') && inUppercase('Z') && inLowecase('b') && inLowecase('z') && !inUppercase('9') && !inLowecase('.'))
    // 	printf("HERE");
