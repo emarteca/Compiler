@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h> // just using for the exit function
 
 
 
@@ -66,6 +67,7 @@ void InitErrMsgs() {
 	errmsg[ 16][ 0] = "Error in hex number formatting";
 	errmsg[ 30][ 0] = "Number too large";
 	errmsg[ 39][ 0] = "39";
+	errmsg[ 45][ 0] = "Unfinished comment... EOF reached";
 	errmsg[ 50][ 0] = "String delimiter missing";
 }
 
@@ -572,8 +574,8 @@ void rcomment() {
 		}
 
 		if( ch == EOF) { // uh oh
-			fputs("\nUnfinished comment... EOF reached", stdout);
-			return;
+			error( 45);
+			exit( 0);
 		}
 	}
 	nextchar();
@@ -649,6 +651,11 @@ void scanstr() {
 			if ( ch == '\\') {
 				temp = '\\';
 				nextchar();
+			}
+
+			if ( ch == EOF) {
+				error( 50); // missing "" for the string
+				exit( 0); // end the program
 			}
 
 			if ( temp == '\\') { // don't get rid of actual metachars
