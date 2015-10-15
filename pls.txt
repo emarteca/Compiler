@@ -1,0 +1,105 @@
+ident: module
+ident: tstgcd
+semic
+ident: import
+ident: in
+comma
+ident: out
+semic
+ident: var
+ident: m
+comma
+ident: n
+colon
+ident: integer
+semic
+string: OMG STRING ""	 LOL"
+CHAR_SYM: p
+INTEGER_SYM: 2
+doubledot
+INTEGER_SYM: 5
+REAL_SYM: 2.000000
+REAL_SYM: 3.500000
+REAL_SYM: 4.578900
+REAL_SYM: 0.345000
+REAL_SYM: 3.000000
+minus
+INTEGER_SYM: 9
+ident: procedure
+ident: gcd
+lparen
+ident: m
+comma
+ident: n
+colon
+ident: integer
+rparen
+colon
+ident: integer
+semic
+ident: begin
+ident: while
+ident: m
+neq
+ident: n
+ident: do
+ident: if
+ident: m
+gt
+ident: n
+ident: then
+ident: m
+assign
+ident: m
+minus
+ident: n
+ident: else
+ident: n
+assign
+ident: n
+minus
+ident: m
+ident: end
+ident: end
+semic
+ident: return
+ident: m
+ident: end
+ident: gcd
+semic
+ident: begin
+ident: in
+per
+ident: int
+lparen
+ident: m
+rparen
+semic
+ident: in
+per
+ident: int
+lparen
+ident: n
+rparen
+semic
+ident: out
+per
+ident: int
+lparen
+ident: gcd
+lparen
+ident: m
+comma
+ident: n
+rparen
+comma
+INTEGER_SYM: 8
+rparen
+semic
+ident: out
+per
+ident: ln
+semic
+ident: end
+ident: tstgcd
+per

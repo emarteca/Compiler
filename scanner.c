@@ -1,13 +1,20 @@
 #include <stdio.h>
 
+
+
+// TODO
+//		-- scientific notation reals ---- should be able to abuse numdigs (just decimals, then add intval with the 10^numdigs, then adjust numdigs)
+//		-- hex ints
+
+
 typedef enum { false, true } bool;
 
 
 const int nreswrd = 40;
 const int inbuffsize = 256;
 const int idbuffsize = 16;
-const int errmax = 256;
-//const int intmax = 32767;
+// const int errmax = 256;
+// const int intmax = 32767;
 
 typedef enum {
 	BOOLEAN_SYM, CHAR_SYM, FALSE_SYM, TRUE_SYM, NEW_SYM,
@@ -25,7 +32,8 @@ typedef enum {
 } Token;
 
 const char *reswrd[ 41][50]; // number of reswords
-const char *symname[ 127][50]; 
+const char *symname[ 127][50];
+const char *errmsg[ 256][32]; // 256 is errmax 
 Token reswrdsym[ 41];
 Token spsym[ 127]; 
 
@@ -47,6 +55,16 @@ int linelen = 0;
 int linenum = 0;
 int idlen = 16; // idbuffsize
 int strlength = 0;
+
+void InitErrMsgs() {
+	int i;
+	for( i = 0; i < 256; i ++) 
+		errmsg[ i][ 0] = "\0";
+
+	errmsg[ 30][ 0] = "Number too large";
+	errmsg[ 39][ 0] = "39";
+	errmsg[ 50][ 0] = "String delimiter missing";
+}
 
 void InitSpSyms() { // one-char symbols (ie. not <=, >=, etc.)
 	int i;
@@ -257,6 +275,13 @@ void InitCompile() {
 	InitResWrdSyms();
 	InitSpSyms();
 	InitSymNames();
+	InitErrMsgs();
+}
+
+void error( int eNum) {
+	fputs( "\n", stdout);
+	fputs( errmsg[ eNum][ 0], stdout);
+	fputs( "\n", stdout);
 }
 
 
