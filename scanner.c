@@ -2,19 +2,21 @@
 #include <stdlib.h> // just using for the exit function
 
 
+/*
+	Oberon scanner 
+	Compile:    gcc scanner.c
+	Run:        ./a.out fileToScan
 
-// TODO 
-//		ish ?? -- scientific notation reals ---- should be able to abuse numdigs (just decimals, then add intval with the 10^numdigs, then adjust numdigs)
+	Ellen Arteca (0297932)
+*/
 
 
-typedef enum { false, true } bool;
+typedef enum { false, true } bool;  // since bool isn't a type in C
 
 
-const int nreswrd = 40;
-const int inbuffsize = 256;
-const int idbuffsize = 16;
-// const int errmax = 256;
-// const int intmax = 32767;
+const int nreswrd = 40;       // number of reserved words
+const int inbuffsize = 256;   // input buffer (line) size
+const int idbuffsize = 16;    // ident buffer size
 
 typedef enum {
 	BOOLEAN_SYM, CHAR_SYM, FALSE_SYM, TRUE_SYM, NEW_SYM,
@@ -31,33 +33,34 @@ typedef enum {
 	lcurb, rcurb, resword, doubledot  
 } Token;
 
-const char *reswrd[ 41][50]; // number of reswords
-const char *symname[ 127][50];
-const char *errmsg[ 256][32]; // 256 is errmax 
+const char *reswrd[ 41][ 50];        // array of reserved words
+const char *symname[ 127][ 50];      // array of symbol names
+const char *errmsg[ 256][ 32];       // 256 is errmax 
 Token reswrdsym[ 41];
 Token spsym[ 127]; 
 
 
-FILE* fileIn;
-char ch; // current char
-Token sym; // current symbol
-char inbuff[ 256]; // inbuffsize
-char idbuff[ 16]; // idbuffsize
-char strbuff[ 80]; // max size for string
+FILE* fileIn;       // file reading in from
+char ch;            // current char
+Token sym;          // current symbol
+char inbuff[ 256];  // inbuffsize
+char idbuff[ 16];   // idbuffsize
+char strbuff[ 80];  // max size for string
 
-int intval; // value of current int being read
-int decimals;
-int numdigs;
+int intval;         // value of current int being read
+int decimals;       // any numbers past the decimal point (if real)
+int numdigs;        // number of decimal digits
 
 char hexBuff[ 256]; // let's make the hex numbers have a limit of 256 digs
 
-int inptr;
-int symptr;
-int linelen = 0;
-int linenum = 0;
-int idlen = 16; // idbuffsize
+int inptr;			// pointer to current char in inbuff
+int symptr;         // pointer to current symbol in inbuff
+int linelen = 0;    // number of chars on current line
+int linenum = 0;    
+int idlen = 16;     // idbuffsize
 int strlength = 0;
 
+// initialize error msgs 
 void InitErrMsgs() {
 	int i;
 	for( i = 0; i < 256; ++ i) 
@@ -71,6 +74,7 @@ void InitErrMsgs() {
 	errmsg[ 50][ 0] = "String delimiter missing";
 }
 
+// initialize special syms (one-char syms)
 void InitSpSyms() { // one-char symbols (ie. not <=, >=, etc.)
 	int i;
 	for ( i = 0; i < 127; ++ i)
@@ -101,10 +105,9 @@ void InitSpSyms() { // one-char symbols (ie. not <=, >=, etc.)
 
 }
 
+// initialize the table of spellings of symbols, required since
+// the symbols, being an enumerated type, cannot be written as such
 void InitSymNames() {
-	// initialize the table of spellings of symbols, required since
-	// the symbols, being an enumerated type, cannot be written as such
-
 	int i;
 	for ( i = 0; i < 127; ++ i)
 		symname[ i][ 0] = "\0"; // start by setting all entries to null string
@@ -185,9 +188,9 @@ void InitSymNames() {
 	symname[         rcurb][ 0] = "rcurb";
 	symname[       resword][ 0] = "resword";
 	symname[     doubledot][ 0] = "doubledot";
-
 }
 
+// initialize reserved words 
 void InitResWrds() {
 	reswrd[ 0][ 0] = "BOOLEAN";
 	reswrd[ 1][ 0] = "CHAR";
@@ -232,6 +235,7 @@ void InitResWrds() {
 	reswrd[ 40][ 0] = "INTEGER";
 }
 
+// initialize reserved word symbols (from Token enum above)
 void InitResWrdSyms() {
 	reswrdsym[ 0] = BOOLEAN_SYM;
 	reswrdsym[ 1] = CHAR_SYM;
@@ -276,6 +280,7 @@ void InitResWrdSyms() {
 	reswrdsym[ 40] = INTEGER_SYM;
 }
 
+// call all methods necessary to set up the scanner 
 void InitCompile() {
 	InitResWrds();
 	InitResWrdSyms();
@@ -284,6 +289,8 @@ void InitCompile() {
 	InitErrMsgs();
 }
 
+// method to print the error message corresponding to the index 
+// of eNum in the array errmsg
 void error( int eNum) {
 	fputs( "------------------------------------\n", stdout);
 	fputs( errmsg[ eNum][ 0], stdout);
@@ -291,36 +298,42 @@ void error( int eNum) {
 	// sym = invalid_sym;
 }
 
-
+// return true if c is a separator
+// (whitespace, horizontal tab, newline, carriage return)
 bool inSeparators( char c) {
 	if (c == ' ' || c == '\t' || c == '\n' || c == '\r')
 		return true;
 	return false;
 }
 
+// return true if c is a lowercase letter
 bool inLowecase( char c) {
 	return c >= 'a' && c <= 'z';
 }
 
+// return true if c is an uppercase letter
 bool inUppercase( char c) {
 	return c >= 'A' && c <= 'Z';
 }
 
+// return true if c is a letter (upper or lowercase)
 bool inLetters( char c) {
 	return inLowecase(c) || inUppercase(c);
 }
 
+// return true if c is a digit (number in [0, 9])
 bool inDigits( char c) {
 	return c >= '0' && c <= '9';
 }
 
+// return true if c is a hex digit
+// this includes numbers in [0, 9], and letters in [A, F]
 bool inHexDigits( char c) {
 	return (c >= 'A' && c <= 'F') || inDigits( c);
 }
 
+// read the next line from the src file into inbuff
 void getLine() {
-	// read the next line from the src file into inbuff
-
 	++ linenum;
 
 	inptr = 0;
@@ -328,6 +341,7 @@ void getLine() {
 	char temp = getc( fileIn);
 	inbuff[ inptr] = temp;
 
+	// read in the next line
 	while (temp != '\n' && temp != EOF && temp != '\0') {
 		temp = getc( fileIn);
 		++ inptr;
@@ -339,17 +353,19 @@ void getLine() {
 
 	linelen = inptr;
 
-	if (inptr == 1) // empty line
+	if (inptr == 1) // empty line has a length of 0
 		linelen = 0;
 
 	inptr = 0;
 
-	ch = temp;
+	ch = temp; // last char read in
 }
 
+// gets the next character from the input buffer
 void nextchar() {
+
 	if (inptr >= linelen) { // should be true on startup 
-						  // TODO initscalars
+						  
 		if (ch == EOF) {
 			//printf("EOF encountered, program incomplete");
 			return;
@@ -357,27 +373,35 @@ void nextchar() {
 		getLine();
 	}
 	ch = inbuff[ inptr];
-	++ inptr;
+	++ inptr; // move inptr to point to the next char in the input buffer
 }
 
+// skip separators at the beginning of the line
+// recall separators are whitespace, \n, \t, \r
 void skipsep() {
 	while (inSeparators( ch)) {
 		nextchar();
 	}
 }
 
+// clear current ident
+// (resets chars in the ident buffer to the null char)
 void clrident() {
 	int i;
 	for ( i = 0; i < idbuffsize; ++ i)
 		idbuff[ i] = '\0';
 }
 
+// build identifier
+// this method is called when it's already an ident 
+// so, char (char | dig)*
 void bldident() {
 
-	clrident();
+	clrident(); // clear old ident
 
 	int k = 0; // number of chars in the ident
-	do {
+
+	do { // read in chars into ident while they're numbers or letters
 		if (k < idbuffsize) {
 			idbuff[ k] = ch;
 			++ k;
@@ -400,6 +424,21 @@ void bldident() {
 	}
 }
 
+// compare 2 strings where first is uppercase and second is lowercase
+int strcmpignorecase( const char *a, const char *b) {
+	// we're going with a is uppercase
+	// and b is lowercase
+	int i;
+	for( i = 0; a[ i] != '\0' && b[ i] != '\0'; ++i) {
+		if( a[ i] + 'a' - 'A' != b[ i])
+			return 1; // not same
+		if( ( a[ i] == '\0' && b[ i] != '\0') || ( b[ i] == '\0' && a[ i] != '\0'))
+			return 1; // not same
+	}
+	return 0; // equal word
+}
+
+// build ident and figure out if it's a reserved word or just normal ident
 void scanident() {
 	// ident -> letter { [ underscore ] ( letter | digit ) }
 	// letter -> 'a' | 'b' | 'c' | 'd' | 'e' | 'f' | 'g' | 'h' | 'i' | 'j'
@@ -411,7 +450,7 @@ void scanident() {
 
 	int i;
 	for ( i = 0; i < nreswrd && !isResWrd; ++ i) { // linear search of reswords
-		if (strcmp(reswrd[i], idbuff) == 0) {
+		if (strcmpignorecase( reswrd[ i][ 0], idbuff) == 0) {
 			isResWrd = true;
 			// since i is updated at the end of the loop
 			// decrement here since when ++i will get to actual value
@@ -419,39 +458,28 @@ void scanident() {
 		}
 	}
 
-	if (isResWrd)
+	if ( isResWrd)
 		sym = reswrdsym[ i];
 	else
 		sym = ident;
 }
 
-// void bldint() { // should scan digits of int and convert to binary
-// 				// unsignedint -> digit { digit }
-// 	int digval;
 
-// 	intval = 0;
-
-// 	while( ch == '0') // ignore leading zeroes
-// 		nextchar();
-// 	while( inDigits( ch)) {
-// 		digval = (int) (ch - '0');
-
-// 		if (intval <= (intmax - digval)/10) 
-// 			intval = 10*intval + digval;
-// 			nextchar();
-// 	}
-// }
-
+// hex number is stored in a buffer
+// this takes the current int and puts it in the hex buffer
+// mostly for hex numbers starting with ints which were initially read 
+// into ints
 int rebuffHex( int dec) { // returns index to keep adding to
 	int i, j;
 	char temp[ 256];
+	// empty buffer
 	for( i = 0; i < 256; ++ i) {
 		hexBuff[ i] = '\0';
 		temp[ i] = '\0';
 	}
 
 	i = 0;
-	do {
+	do {   // go digit per digit and store in hex buffer
 		int curDig = dec%10;
 		temp[ i] = (char) (curDig + (int)('0'));
 
@@ -466,10 +494,9 @@ int rebuffHex( int dec) { // returns index to keep adding to
 	return i;
 }
 
+// scan a number (int/hex/real)
 void scannum() {
 	sym = INTEGER_SYM;
-
-	//bldint();
 
 	int digval;
 
@@ -552,6 +579,9 @@ void scannum() {
 
 }
 
+
+// scan comments 
+// they are effectively ignored i.e. not included in the parse output
 void rcomment() {
 	// comments in oberon are (* ..... *)
 	// also there can be nested comments 
@@ -581,6 +611,7 @@ void rcomment() {
 	nextchar();
 }
 
+// check if assignment statement :=
 void idassign() {
 	sym = colon;
 	nextchar();
@@ -590,7 +621,9 @@ void idassign() {
 	}
 }
 
-void idrelop() { // this will be >= or <=
+// check if relational operator with 2 chars
+// this will be >= or <=
+void idrelop() { 
 	sym = spsym[ ch];
 	nextchar(); 
 	if ( sym == lt && ch == '=') {
@@ -603,6 +636,8 @@ void idrelop() { // this will be >= or <=
 	}
 }
 
+// computes basse to the power of exp
+// where exp is a positive integer
 float expo(float base, int exp) {
 	float res = base;
 	int i;
@@ -611,6 +646,8 @@ float expo(float base, int exp) {
 	return res;
 }
 
+// method to print the current symbol 
+// mostly for debugging
 void writesym() {
 	fputs( symname[ sym][ 0], stdout);
 
@@ -641,6 +678,7 @@ void writesym() {
 	fputs( "\n", stdout);
 }
 
+// scan a string " char* "
 void scanstr() {
 	strlength = 0;
 	do {
@@ -685,6 +723,7 @@ void scanstr() {
 		sym = string;
 }
 
+// scan the next symbol
 void nextsym() {
 	// continue until symbol found
 	bool symfnd;
@@ -739,21 +778,20 @@ void nextsym() {
 	} while (!symfnd);
 }
 
+
+// run the code
 int main( int argc, char **argv) {
    ch = ' ';
    InitCompile();
 
    // arg[1] is the first command line arg
+
+   if ( argc != 2) {
+   		fputs( "\nError exiting now\nUsage: ./a.out fileToScan\n\n", stdout);
+   		exit( 0);
+   }
    
    fileIn = fopen( argv[ 1], "r");
-
-   // while (ch != EOF) {
-   // 		nextchar();
-   // 		putc( ch, stdout);
-   // 		printf("  ");
-   // }
-
-   //fputs( reswrd[ 0][0], stdout);
 
    while ( ch != EOF) {
 	   nextsym();
@@ -761,14 +799,5 @@ int main( int argc, char **argv) {
 	   	writesym();
 	}
 
-	// int dec = 1234;
-	// rebuffHex(dec);
-
-	// fputs( hexBuff, stdout);
-	
-
-   // if (inUppercase('C') && inUppercase('A') && inUppercase('Z') && inLowecase('b') && inLowecase('z') && !inUppercase('9') && !inLowecase('.'))
-   // 	printf("HERE");
-   
    return(0);
 }
