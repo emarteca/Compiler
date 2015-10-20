@@ -14,20 +14,20 @@
 typedef enum { false, true } bool;  // since bool isn't a type in C
 
 
-const int nreswrd = 40;       // number of reserved words
+const int nreswrd = 41;       // number of reserved words
 const int inbuffsize = 256;   // input buffer (line) size
 const int idbuffsize = 16;    // ident buffer size
 
 typedef enum {
 	BOOLEAN_SYM, CHAR_SYM, FALSE_SYM, TRUE_SYM, NEW_SYM,
-	REAL_SYM, INTEGER_SYM, HEXINT_SYM, ARRAY_SYM, IMPORT_SYM, THEN_SYM, BEGIN_SYM, IN_SYM,
+	real_number, INTEGER_SYM, int_number, hexint_number, ARRAY_SYM, IMPORT_SYM, THEN_SYM, BEGIN_SYM, IN_SYM,
 	TO_SYM, BY_SYM, IS_SYM, CASE_SYM, MOD_SYM, TYPE_SYM, CONST_SYM,
 	MODULE_SYM, UNTIL_SYM, DIV_SYM, NIL_SYM, VAR_SYM, DO_SYM, OF_SYM,
 	WHILE_SYM, ELSE_SYM, OR_SYM, ELSIF_SYM, POINTER_SYM, END_SYM, 
 	PROCEDURE_SYM, RECORD_SYM, FOR_SYM, REPEAT_SYM, IF_SYM, RETURN_SYM,
 	EXIT_SYM, LOOP_SYM, WITH_SYM,
 
-	lparen, rparen, plus, minus, mul, slash, rbrac, lbrac, equal, colon,
+	lparen, rparen, plus, hyphen, star, slash, rbrac, lbrac, equal, colon,
 	lt, lte, gt, gte, semic, null, assign, carat, neq, comma, per, ident, 
 	number, string, eof_sym, invalid_sym, op_sym, set_sym, tilde, 
 	lcurb, rcurb, resword, doubledot  
@@ -83,8 +83,8 @@ void InitSpSyms() { // one-char symbols (ie. not <=, >=, etc.)
 	spsym[ '('] = lparen;
 	spsym[ ')'] = rparen;
 	spsym[ '+'] = plus;
-	spsym[ '-'] = minus;
-	spsym[ '*'] = mul;
+	spsym[ '-'] = hyphen;
+	spsym[ '*'] = star;
 	spsym[ '/'] = slash;
 	spsym[ ']'] = rbrac;
 	spsym[ '['] = lbrac;
@@ -117,9 +117,10 @@ void InitSymNames() {
 	symname[     FALSE_SYM][ 0] = "FALSE_SYM";
 	symname[      TRUE_SYM][ 0] = "TRUE_SYM";
 	symname[       NEW_SYM][ 0] = "NEW_SYM";
-	symname[      REAL_SYM][ 0] = "REAL_SYM";
+	symname[      real_number][ 0] = "real_number";
+	symname[       int_number][ 0] = "int_number";
 	symname[   INTEGER_SYM][ 0] = "INTEGER_SYM";
-	symname[    HEXINT_SYM][ 0] = "HEXINT_SYM";
+	symname[    hexint_number][ 0] = "hexint_number";
 	symname[     ARRAY_SYM][ 0] = "ARRAY_SYM";
 	symname[    IMPORT_SYM][ 0] = "IMPORT_SYM";
 	symname[      THEN_SYM][ 0] = "THEN_SYM";
@@ -158,8 +159,8 @@ void InitSymNames() {
 	symname[        lparen][ 0] = "lparen";
 	symname[        rparen][ 0] = "rparen";
 	symname[          plus][ 0] = "plus";
-	symname[         minus][ 0] = "minus";
-	symname[           mul][ 0] = "mul";
+	symname[        hyphen][ 0] = "hyphen";
+	symname[          star][ 0] = "star";
 	symname[         slash][ 0] = "slash";
 	symname[         rbrac][ 0] = "rbrac";
 	symname[         lbrac][ 0] = "lbrac";
@@ -242,7 +243,7 @@ void InitResWrdSyms() {
 	reswrdsym[ 2] = FALSE_SYM;
 	reswrdsym[ 3] = TRUE_SYM;
 	reswrdsym[ 4] = NEW_SYM;
-	reswrdsym[ 5] = REAL_SYM;
+	reswrdsym[ 5] = real_number;
 	reswrdsym[ 6] = ARRAY_SYM;
 	reswrdsym[ 7] = IMPORT_SYM;
 	reswrdsym[ 8] = THEN_SYM;
@@ -429,9 +430,10 @@ int strcmpignorecase( const char *a, const char *b) {
 	// we're going with a is uppercase
 	// and b is lowercase
 	int i;
-	for( i = 0; a[ i] != '\0' && b[ i] != '\0'; ++i) {
-		if( a[ i] + 'a' - 'A' != b[ i])
+	for( i = 0; a[ i] != '\0' && b[ i] != '\0';) {
+		if( a[ i] + 'a' - 'A' != b[ i]  && a[ i] != '\0' && b[ i] != '\0')
 			return 1; // not same
+		++i;
 		if( ( a[ i] == '\0' && b[ i] != '\0') || ( b[ i] == '\0' && a[ i] != '\0'))
 			return 1; // not same
 	}
@@ -496,7 +498,7 @@ int rebuffHex( int dec) { // returns index to keep adding to
 
 // scan a number (int/hex/real)
 void scannum() {
-	sym = INTEGER_SYM;
+	sym = int_number;
 
 	int digval;
 
@@ -528,7 +530,7 @@ void scannum() {
 		else if( inDigits( lookahead)) {
 			numdigs = -1; // it'll get incremented one too many times
 			decimals = 0;
-			sym = REAL_SYM;
+			sym = real_number;
 			nextchar(); // to eat the .
 			while( inDigits( ch)) {
 				digval = (int) (ch - '0');
@@ -541,7 +543,7 @@ void scannum() {
 		else if( inSeparators( lookahead)) { // assume num. is num.0
 			numdigs = 0;
 			decimals = 0;
-			sym = REAL_SYM;
+			sym = real_number;
 			nextchar();
 		}
 		else {
@@ -549,7 +551,7 @@ void scannum() {
 		}
 	}
 	else if( inHexDigits( ch)) {
-		sym = HEXINT_SYM;
+		sym = hexint_number;
 		// hex numbers are dig dig* hex hex* H
 		// works b/c decimals digs count as hex
 
@@ -573,7 +575,7 @@ void scannum() {
 	} else if( ch == 'H') {
 		// then it was a hex number with no letter parts
 		rebuffHex( intval);
-		sym = HEXINT_SYM;
+		sym = hexint_number;
 		nextchar();
 	}
 
@@ -661,14 +663,14 @@ void writesym() {
 			fputs( ": ", stdout);
 			fputs( strbuff, stdout);
 			break;
-		case INTEGER_SYM: 
+		case int_number: 
 			printf( ": %d", intval);
 			break;
-		case HEXINT_SYM: 
+		case hexint_number: 
 			fputs(": ", stdout);
 			fputs( hexBuff, stdout);
 			break;
-		case REAL_SYM:
+		case real_number:
 			printf( ": %f", (intval + decimals/(expo(10.0f, numdigs))));
 			break;
 		default:
@@ -768,7 +770,7 @@ void nextsym() {
 							rcomment();
 						}
 						break;
-					default: // then should be in one of the "special" chars (mul, slash, etc.)
+					default: // then should be in one of the "special" chars (star, slash, etc.)
 						sym = spsym[ ch];
 						nextchar();
 						break;
