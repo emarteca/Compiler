@@ -20,7 +20,7 @@ const int idbuffsize = 16;    // ident buffer size
 
 typedef enum {
 	BOOLEAN_SYM, CHAR_SYM, FALSE_SYM, TRUE_SYM, NEW_SYM,
-	real_number, INTEGER_SYM, int_number, hexint_number, ARRAY_SYM, IMPORT_SYM, THEN_SYM, BEGIN_SYM, IN_SYM,
+	real_number, REAL_SYM, INTEGER_SYM, int_number, hexint_number, ARRAY_SYM, IMPORT_SYM, THEN_SYM, BEGIN_SYM, IN_SYM,
 	TO_SYM, BY_SYM, IS_SYM, CASE_SYM, MOD_SYM, TYPE_SYM, CONST_SYM,
 	MODULE_SYM, UNTIL_SYM, DIV_SYM, NIL_SYM, VAR_SYM, DO_SYM, OF_SYM,
 	WHILE_SYM, ELSE_SYM, OR_SYM, ELSIF_SYM, POINTER_SYM, END_SYM, 
@@ -117,10 +117,11 @@ void InitSymNames() {
 	symname[     FALSE_SYM][ 0] = "FALSE_SYM";
 	symname[      TRUE_SYM][ 0] = "TRUE_SYM";
 	symname[       NEW_SYM][ 0] = "NEW_SYM";
-	symname[      real_number][ 0] = "real_number";
-	symname[       int_number][ 0] = "int_number";
+	symname[   real_number][ 0] = "real_number";
+	symname[    int_number][ 0] = "int_number";
+	symname[      REAL_SYM][ 0] = "REAL_SYM";
 	symname[   INTEGER_SYM][ 0] = "INTEGER_SYM";
-	symname[    hexint_number][ 0] = "hexint_number";
+	symname[ hexint_number][ 0] = "hexint_number";
 	symname[     ARRAY_SYM][ 0] = "ARRAY_SYM";
 	symname[    IMPORT_SYM][ 0] = "IMPORT_SYM";
 	symname[      THEN_SYM][ 0] = "THEN_SYM";
@@ -243,7 +244,7 @@ void InitResWrdSyms() {
 	reswrdsym[ 2] = FALSE_SYM;
 	reswrdsym[ 3] = TRUE_SYM;
 	reswrdsym[ 4] = NEW_SYM;
-	reswrdsym[ 5] = real_number;
+	reswrdsym[ 5] = REAL_SYM;
 	reswrdsym[ 6] = ARRAY_SYM;
 	reswrdsym[ 7] = IMPORT_SYM;
 	reswrdsym[ 8] = THEN_SYM;
