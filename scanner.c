@@ -18,6 +18,7 @@ const int nreswrd = 41;       // number of reserved words
 const int inbuffsize = 256;   // input buffer (line) size
 const int idbuffsize = 16;    // ident buffer size
 
+
 typedef enum 
 {
   BOOLEAN_SYM, CHAR_SYM, FALSE_SYM, TRUE_SYM, NEW_SYM,
@@ -60,6 +61,8 @@ int linelen = 0;    // number of chars on current line
 int linenum = 0;    
 int idlen = 16;     // idbuffsize
 int strlength = 0;
+char strToMatch = '\'';    // character to match to end the string (this lets you have embedded quotes if they're the opposite type)
+						   // so, for example, you have have "I'm hungry"  or 'Go buy some "food" from aramark'
 
 // initialize error msgs 
 void InitErrMsgs() 
@@ -733,7 +736,7 @@ void writesym()
   fputs( "\n", stdout);
 } // end writesym
 
-// scan a string " char* "
+// scan a string " char* "   or ' char* '
 void scanstr() 
 {
   strlength = 0;
@@ -769,12 +772,12 @@ void scanstr()
       strbuff[ strlength] = ch;
       ++ strlength;
 
-      if (temp == '\\' && ch == '"') // not end of string
+      if (temp == '\\' && ch == strToMatch) // not end of string
         ch = ' ';
 
-    } while( ch != '"');
+    } while( ch != strToMatch);
     nextchar();
-  } while( ch == '"');
+  } while( ch == strToMatch);
 
   strbuff[ --strlength] = '\0'; // null character to end the string
                   // also last char is not in the string (it's the quote)
@@ -808,6 +811,11 @@ void nextsym()
         switch( ch) 
         {
           case '"':
+          	strToMatch = '"';
+          	scanstr();
+            break;
+          case '\'': 
+          	strToMatch = '\'';
             scanstr();
             break;
           case '.':
