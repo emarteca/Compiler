@@ -905,6 +905,9 @@ void nextsym()
               rcomment();
             }
             break;
+          case EOF:
+            sym = eof_sym;
+            break;
           default: // then should be in one of the "special" chars (star, slash, etc.)
             sym = spsym[ ch];
             nextchar();
@@ -932,12 +935,11 @@ int main( int argc, char **argv)
    
    fileIn = fopen( argv[ 1], "r");
 
-   while ( ch != EOF) 
+   do 
    {
      nextsym();
-     if ( ch != EOF)
-       writesym();
-    } // end while
+     writesym();
+    } while( sym != eof_sym); 
 
    return(0);
 } // end main
