@@ -602,7 +602,7 @@ void scannum()
     } 
     else if( inDigits( lookahead)) 
     {
-      numdigs = -1; // it'll get incremented one too many times
+      numdigs = 0; 
       decimals = 0;
       sym = real_number;
       nextchar(); // to eat the .
