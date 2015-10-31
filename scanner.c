@@ -527,6 +527,43 @@ int rebuffHex( int dec) // returns index to keep adding to
   return i;
 } // end rebuffHex
 
+// computes basse to the power of exp
+// where exp is a positive integer
+float expo(float base, int exp) 
+{
+  float res = 1;
+  int i;
+  for ( i = 0; i < exp; ++ i)
+    res *= base;
+  return res;
+} // end expo
+
+int getValue() // return value of current hex in decimal
+{
+  int i = 255; // last index of char
+  int curPow = 0;
+  int totalVal = 0;
+  
+  while ( i >= 0)
+  {
+  	if ( hexBuff[ i] != '\0')
+  	{
+      int curDig = 0;
+  	  char curChar = hexBuff[ i];
+
+  	  if ( inUppercase( curChar))        // then it's an uppercase letter from A to F inclusive
+  	  	curDig = 10 + (int) ( curChar - 'A');
+  	  else                               // then it's a number
+  	    curDig = (int) ( curChar - '0');
+
+  	  totalVal += curDig * expo( 16, curPow);
+  	  ++ curPow;
+  	}
+  	-- i;
+  }
+  return totalVal;
+}
+
 // scan a number (int/hex/real)
 void scannum() 
 {
@@ -610,10 +647,27 @@ void scannum()
       nextchar();
     }
 
-    if( ch != 'H') 
-      error( 16); // something wrong with the hex
-    else 
+    if ( ch == 'H')
       nextchar(); // get rid of the H
+    else if ( ch == 'X') 
+    {
+      // it was a one-character literal specified by its ordinal number (number between 0 and 255 in hex)
+      // need to check the range of the number
+      int ord = getValue();
+      if ( ord < 0 || ord > 255)
+        error( 16); // error in hex
+      sym = CHAR_SYM;
+
+      strlength = 1;
+      strbuff[ 0] = (char) ord;
+      strbuff[ 1] = '\0';
+
+      nextchar();
+
+    }
+    else 
+      error( 16); // something wrong with the hex
+    
   } 
   else if( ch == 'H') 
   {
@@ -621,6 +675,23 @@ void scannum()
     rebuffHex( intval);
     sym = hexint_number;
     nextchar();
+  } 
+  else if ( ch == 'X')
+  {
+  	// then, it was a one-character literal specified by its ordinal number (number between 0 and 255 in hex)
+  	rebuffHex( intval);
+  	// need to check the range of the number
+  	int ord = getValue();
+  	if ( ord < 0 || ord > 255)
+      error( 16); // error in hex
+  	sym = CHAR_SYM;
+
+  	strlength = 1;
+    strbuff[ 0] = (char) ord;
+    strbuff[ 1] = '\0';
+
+    nextchar();
+
   }
 
 } // end scannum
@@ -690,17 +761,6 @@ void idrelop() {
     nextchar();
   }
 } // end idrelop
-
-// computes basse to the power of exp
-// where exp is a positive integer
-float expo(float base, int exp) 
-{
-  float res = base;
-  int i;
-  for ( i = 0; i < exp; ++ i)
-    res *= base;
-  return res;
-} // end expo
 
 // method to print the current symbol 
 // mostly for debugging
