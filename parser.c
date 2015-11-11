@@ -1071,7 +1071,9 @@ void DeclSeq()
 }
 void ConstDecl();
 void identdef();
-void ConstExpr();
+void ConstExpr() {
+
+}
 void TypeDecl();
 void StrucType();
 void ArrayType();
@@ -1087,12 +1089,117 @@ void FieldList();
 void IdentList();
 void PointerType();
 void ProcType();
-void ProcHead();
-void ProcBody();
-void FormParams();
-void FormParamSect();
-void FormType();
-void ForwardDecl();
+
+void ProcHead()
+{
+  accept( PROCEDURE_SYM, 1);
+  if ( sym == lparen)
+  {
+    // first of receiver
+    Receiver();
+  }
+
+  identdef();
+
+  if ( sym == lparen)
+  {
+    // first of FormParams
+    FormParams();
+  }
+}
+
+void ProcBody()
+{
+  DeclSeq();
+  if ( sym == BEGIN_SYM)
+  {
+    nextsym();
+    StatSeq();
+  }
+
+  if ( sym == RETURN_SYM)
+  {
+    nextsym();
+    expr();
+  }
+
+  accept( END_SYM, 1);
+}
+
+void FormParams()
+{
+  accept( lparen, 1);
+
+  if ( sym != rparen) {
+    FormParamSect();
+    while ( sym == semic)
+    {
+      nextsym();
+      FormParamSect();
+    }
+  }
+
+  accept( rparen, 1);
+
+  if ( sym == colon)
+  {
+    nextsym();
+    qualident();
+  }
+}
+
+void FormParamSect()
+{
+  if ( sym == VAR_SYM)
+  {
+    nextsym();
+  }
+
+  accept( ident, 1);
+  while ( sym == comma)
+  {
+    nextsym();
+    accept( ident, 1);
+  }
+
+  accept( colon, 1);
+  FormType();
+}
+
+void FormType()
+{
+  while ( sym == ARRAY_SYM)
+  {
+    nextsym();
+    accept( OF_SYM, 1);
+  }
+
+  if ( sym == PROCEDURE_SYM) 
+  {
+    ProcType();
+  }
+  else
+  {
+    qualident();
+  }
+}
+
+void ForwardDecl() 
+{
+  accept( PROCEDURE_SYM, 1);
+  accept( carat, 1);
+  // first of receiver is (
+  if ( sym == lparen)
+  {
+    Receiver();
+  }
+
+  identdef();
+  if ( sym == lparen)
+  {
+    FormParams();
+  }
+}
 
 void Receiver()
 {
@@ -1650,7 +1757,7 @@ int main( int argc, char **argv)
    */
 
     nextsym();
-    ScaleFac();
+    IfStat();
 
    return(0);
 } // end main
