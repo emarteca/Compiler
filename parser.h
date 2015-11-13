@@ -19,6 +19,9 @@
 	void IdentList();
 	void PointerType();
 	void ProcType();
+	void VarDecl();
+	void type();
+	void ProcDecl();
 	void ProcHead();
 	void ProcBody();
 	void FormParams();

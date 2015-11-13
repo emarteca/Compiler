@@ -1,0 +1,135 @@
+			    Oberon-2 Syntax in EBNF
+
+Note: The metacharacters are -> [ ] { } ( ) | where
+      [ x ] denotes zero or one occurrence of x , i.e. an optional x,
+      { x } denotes zero of more occurrences of x,
+      x | y denotes one of either x or y,
+      ( ) and also [ ], { } serve as parentheses (for grouping)
+
+      'x' denotes a character in the source; quotes are used only when required
+          to disambiguate a metacharacter from an identical character in Oberon
+
+ 1. module -> MODULE ident ;
+              [ ImportList ]
+              DeclSeq
+              [ BEGIN StatSeq ]
+              END ident .
+
+ 2. ImportList -> IMPORT import { , import } ;
+ 3. import -> ident [ := ident ]
+
+ 4. DeclSeq -> { CONST { ConstDecl ; }
+                 | TYPE { TypeDecl ; } 
+                 | VAR { VarDecl ; } }
+                 { ProcDecl ; | ForwardDecl ; }
+
+ 5. ConstDecl -> identdef = ConstExpr
+ 6. identdef -> ident [ * | - ]
+ 7. ConstExpr -> expr
+
+ 8. TypeDecl -> identdef = StrucType
+ 9. StrucType -> ArrayType | RecType | PointerType | ProcType
+
+10. ArrayType -> ARRAY length { , length } OF type
+11. length -> ConstExpr
+
+12. RecType -> RECORD [ '(' BaseType ')' ] [ FieldListSeq ] END
+13. BaseType -> qualident
+14. qualident -> [ ident . ] ident
+15. FieldListSeq -> FieldList { ; FieldList }
+16. FieldList -> IdentList : type
+17. IdentList -> identdef { , identdef }
+
+18. PointerType -> POINTER TO type
+
+19. ProcType -> PROCEDURE [ FormParams ]
+
+20. VarDecl -> IdentList : type
+21. type -> qualident | StrucType
+
+22. ProcDecl -> ProcHead ; ProcBody ident
+23. ProcHead -> PROCEDURE [ Receiver ] identdef [ FormParams ]
+24. ProcBody -> DeclSeq [ BEGIN StatSeq ] [ RETURN expr ] END
+25. FormParams -> '(' [ FormParamSect { ; FormParamSect } ] ')' [ : qualident ]
+26. FormParamSect -> [ VAR ] ident { , ident } : FormType
+27. FormType -> { ARRAY OF } ( qualident | ProcType )
+28. ForwardDecl -> PROCEDURE ^ [ Receiver ] identdef [ FormParams ]
+29. Receiver -> '(' [ VAR ] ident : ident ')'
+
+30. StatSeq -> stat { ; stat }
+31. stat -> [ AssignStat | ProcCall | IfStat | CaseStat | WhileStat | 
+              RepeatStat | ForStat ]
+
+32. AssignStat -> designator := expr
+
+33. ProcCall -> designator [ ActParams ]
+
+34. IfStat -> IF expr THEN StatSeq
+              { ELSIF expr THEN StatSeq }
+              [ ELSE StatSeq ] END
+
+35. CaseStat -> CASE expr OF 
+                case { '|' case } [ ELSE StatSeq ]END
+36. case -> [ CaseLabList : StatSeq ]
+37. CaseLabList -> LabelRange { , LabelRange }
+38. LabelRange -> label [ .. label ]
+39. label -> integer | string | ident
+
+40. WhileStat -> WHILE expr DO StatSeq
+                 { ELSIF expr DO StatSeq } END
+
+41. RepeatStat ->REPEAT StatSeq UNTIL expr
+
+42. ForStat -> FOR ident := expr TO expr [ BY ConstExpr ] DO StatSeq END
+
+43. LoopStat -> LOOP StatSeq END
+
+44. ExitStat -> EXIT
+
+45. WithStat -> WITH guard DO StatSeq
+      { | guard DO StatSeq }
+      [ ELSE StatSeq ] END
+
+46. guard -> qualident : qualident
+
+47. expr -> SimplExpr [ relop SimplExpr ]
+48. relop -> = | # | < | <= | >= | IN | IS
+49. SimplExpr -> [ + | - ] term { addop term }
+50. addop -> + | - | OR
+51. term -> factor { mulop factor }
+52. mulop -> * | / | DIV | MOD | &
+53. factor -> num | string | NIL | TRUE | FALSE
+              | set | designator [ ActParams ] 
+              | '(' expr ')'
+54. set -> '{' [ elem { , elem } ] '}'
+55. elem -> expr [ .. expr ]
+56. designator -> qualident { selector } 
+57. selector -> . ident 
+                | '[' ExprList ']' 
+                | ^ 
+                | '(' qualident ')'
+58. ActParams -> '(' [ ExprList ] ')'
+59. ExprList -> expr { , expr }
+
+
+60. string -> " { char } "
+              | ' { char } ' 
+              | digit { hexdig } X
+61. num -> integer | real
+62. integer -> digit { digit } | digit { hexdigit } H
+63. real -> digit { digit } . { digit } [ ScaleFac ]
+64. ScaleFac -> ( E  | D ) [ + | - ] digit { digit }
+65. digit -> 0 | 1 | 2 | 3 | 4 | 5 | 6 } 7 | 8 | 9
+66. hexdig -> digit | A | B | C | D | E | F
+67. ident -> letter { letter | digit }
+68. letter -> A | B | ... | Z | a | b | ... | z
+
+Note:
+ 1. Rules 60 ... 68 are handled by the scanner
+ 2. Only a single-character string may be specified by the character's 
+    ordinal number in hexadecimal notation followed by an X (the ordinal
+    number must be in the range 0 - 255)
+ 3. Comments, which may be nested, are arbitrary character sequences 
+    opened with (* and closed with *)
+
+ / 29 Oct 15

@@ -1,32 +1,6 @@
-MODULE tstgcd;
-  IMPORT In, Out;
-  VAR m, n: INTEGER;
-  "OMG STRING \"\"\t LOL\""
-  "p"
-
-  2..5
-  2. 3.5 4.5789 0.345 3. -9
-
-  (*****(**)*****(*fejwofhuwifw*)()()()()(**)lololololol*)
-
-  123H 1234 12A34BCD1H 1H 123A
-
-  PROCEDURE gcd(m, n: INTEGER): INTEGER;
-  BEGIN
-    WHILE m # n DO
-      IF m > n THEN
-        m := m - n
-      ELSE
-        n := n - m
-      END
-    END;
-    RETURN m
-  END gcd;
-
+MODULE tst;
+VAR
+  a*, b*: INTEGER;
 BEGIN
-  In.Int( m);
-  In.Int( n);
-  
-  Out.Int( gcd( m, n), 8);
-  Out.Ln;
-END tstgcd.
+(*2.44546 3.4555 4.5 9 9 8 12AH 14BC48H REAL INTEGER 2.5 1 REAL 123X 45X *)
+END tst.
