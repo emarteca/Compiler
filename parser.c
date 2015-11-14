@@ -73,13 +73,29 @@ void InitErrMsgs()
   for( i = 0; i < 256; ++ i) 
     errmsg[ i][ 0] = "\0";
 
-  errmsg[  1][ 0] = "IT'S A TRAP   <-------------------------------";
-  errmsg[ 10][ 0] = "Error in general number format";
-  errmsg[ 16][ 0] = "Error in hex number formatting";
-  errmsg[ 30][ 0] = "Number too large";
-  errmsg[ 39][ 0] = "39";
-  errmsg[ 45][ 0] = "Unfinished comment... EOF reached";
-  errmsg[ 50][ 0] = "String delimiter missing";
+  errmsg[   1][ 0] = "ERROR 1";
+  errmsg[  10][ 0] = "Error in general number format";
+  errmsg[  16][ 0] = "Error in hex number formatting";
+  errmsg[  30][ 0] = "Number too large";
+  errmsg[  39][ 0] = "39";
+  errmsg[  45][ 0] = "Unfinished comment... EOF reached";
+  errmsg[  50][ 0] = "String delimiter missing";
+  errmsg[ 122][ 0] = "Number expected";
+  errmsg[ 123][ 0] = "= expected";
+  errmsg[ 124][ 0] = "identifier expected";
+  errmsg[ 125][ 0] = "semic or comma expected";
+  errmsg[ 127][ 0] = "statement expected";
+  errmsg[ 129][ 0] = "period expected";
+  errmsg[ 131][ 0] = "undeclared ident";
+  errmsg[ 133][ 0] = ":= expected";
+  errmsg[ 136][ 0] = "THEN expected";
+  errmsg[ 137][ 0] = "Semicolon or END expected";
+  errmsg[ 138][ 0] = "DO expected";
+  errmsg[ 140][ 0] = "Relational operator expected";
+  errmsg[ 142][ 0] = ") expected";
+  errmsg[ 151][ 0] = "Semicolon expected";
+  errmsg[ 152][ 0] = "PROGRAM expected";
+  errmsg[ 153][ 0] = "colon expected";
 } // end InitErrMsgs
 
 // initialize special syms (one-char syms)
@@ -1029,9 +1045,9 @@ void module()
 
     if ( debugMode) printf( "In Module\n");
 
-    accept( MODULE_SYM, 1);
-    accept( ident, 1);
-    accept( semic, 1);
+    accept( MODULE_SYM, 154);
+    accept( ident, 124);
+    accept( semic, 151);
 
     if ( sym == IMPORT_SYM)
     {
@@ -1047,9 +1063,9 @@ void module()
     	StatSeq();
     }
 
-    accept( END_SYM, 1);
-    accept( ident, 1);
-    accept( per, 1);
+    accept( END_SYM, 155);
+    accept( ident, 124);
+    accept( per, 129);
 
     if ( debugMode) printf( "Out Module\n");
 }
@@ -1062,7 +1078,7 @@ void ImportList()
 
   if ( debugMode) printf( "In ImportList\n");
 
-	accept( IMPORT_SYM, 1);
+	accept( IMPORT_SYM, 156);
 	import();
 
 	while ( sym == comma)
@@ -1072,7 +1088,7 @@ void ImportList()
 		import();
 	}
 
-	accept( semic, 1);
+	accept( semic, 151);
 
   if ( debugMode) printf( "Out ImportList\n");
 }
@@ -1085,12 +1101,12 @@ void import()
 
   if ( debugMode) printf( "In import\n");
 
-	accept( ident, 1);
+	accept( ident, 124);
 	if ( sym == assign)
 	{
     writesym();
     nextsym();
-		accept( ident, 1);
+		accept( ident, 124);
 	}
 
   if ( debugMode) printf( "Out import\n");
@@ -1118,7 +1134,7 @@ void DeclSeq()
         while ( sym == ident)
         {
           ConstDecl();
-          accept( semic, 1);
+          accept( semic, 151);
         }
         break;
       case TYPE_SYM:
@@ -1126,7 +1142,7 @@ void DeclSeq()
         while ( sym == ident)
         {
           TypeDecl();
-          accept( semic, 1);
+          accept( semic, 151);
         }
         break;
       case VAR_SYM:
@@ -1134,7 +1150,7 @@ void DeclSeq()
         while ( sym == ident)
         {
           VarDecl();
-          accept( semic, 1);
+          accept( semic, 151);
         }
     }
   }  
@@ -1170,11 +1186,11 @@ void DeclSeq()
       {
         FormParams();
       }
-      accept( semic, 1);
+      accept( semic, 151);
       ProcBody();
-      accept( ident, 1);
+      accept( ident, 124);
     }
-    accept( semic, 1);
+    accept( semic, 151);
   }
 
   if ( debugMode) printf( "Out DeclSeq\n");
@@ -1189,7 +1205,7 @@ void ConstDecl()
   if ( debugMode) printf( "In ConstDecl\n");
 
   identdef();
-  accept( equal, 1);
+  accept( equal, 123);
   ConstExpr(); 
 
   if ( debugMode) printf( "Out ConstDecl\n");   
@@ -1203,7 +1219,7 @@ void identdef()
 
   if ( debugMode) printf( "In identdef\n");
 
-  accept( ident, 1);
+  accept( ident, 124);
   if ( sym == star || sym == hyphen)
   {
     writesym();
@@ -1231,7 +1247,7 @@ void TypeDecl()
 
   if ( debugMode) printf( "In TypeDecl\n");
   identdef();
-  accept( equal, 1);
+  accept( equal, 123);
   StrucType();
   if ( debugMode) printf( "Out TypeDecl\n");
 }
@@ -1272,7 +1288,7 @@ void ArrayType()
 
   if ( debugMode) printf( "In ArrayType\n");
 
-  accept( ARRAY_SYM, 1);
+  accept( ARRAY_SYM, 157);
   length();
 
   while ( sym == comma)
@@ -1282,7 +1298,7 @@ void ArrayType()
     length();
   }
 
-  accept( OF_SYM, 1);
+  accept( OF_SYM, 158);
   type();
   if ( debugMode) printf( "Out ArrayType\n");
 }
@@ -1305,13 +1321,13 @@ void RecType()
   */
 
   if ( debugMode) printf( "In RecType\n");
-  accept( RECORD_SYM, 1);
+  accept( RECORD_SYM, 159);
   if ( sym == lparen)
   {
     writesym();
     nextsym();
     BaseType();
-    accept( rparen, 1);
+    accept( rparen, 142);
   }
 
   if ( sym != END_SYM)
@@ -1319,7 +1335,7 @@ void RecType()
     FieldListSeq();
   }
 
-  accept( END_SYM, 1);
+  accept( END_SYM, 155);
 
   if ( debugMode) printf( "Out RecType\n");
 }
@@ -1353,14 +1369,14 @@ void qualident()
   }
   else
   {
-    accept( ident, 1);
+    accept( ident, 124);
   }
 
   if ( sym == per)
   {
     writesym();
     nextsym();
-    accept( ident, 1);
+    accept( ident, 124);
   }
   if ( debugMode) printf( "Out qualident\n");
 }
@@ -1390,7 +1406,7 @@ void FieldList()
 
   if ( debugMode) printf( "In FieldList\n");
   IdentList();
-  accept( colon, 1);
+  accept( colon, 153);
   type();
   if ( debugMode) printf( "Out FieldList\n");
 }
@@ -1419,8 +1435,8 @@ void PointerType()
   */
 
   if ( debugMode) printf( "In PointerType\n");
-  accept( POINTER_SYM, 1);
-  accept( TO_SYM, 1);
+  accept( POINTER_SYM, 160);
+  accept( TO_SYM, 161);
   type();
   if ( debugMode) printf( "Out PointerType\n");
 }
@@ -1432,7 +1448,7 @@ void ProcType()
   */
 
   if ( debugMode) printf( "In ProcType\n");
-  accept( PROCEDURE_SYM, 1);
+  accept( PROCEDURE_SYM, 162);
   if ( sym == lparen)
   {
     FormParams();
@@ -1448,7 +1464,7 @@ void VarDecl()
 
   if ( debugMode) printf( "In VarDecl\n");
   IdentList();
-  accept( colon, 1);
+  accept( colon, 153);
   type();
   if ( debugMode) printf( "Out VarDecl\n");
 }
@@ -1481,9 +1497,9 @@ void ProcDecl()
 
   if ( debugMode) printf( "In ProcDecl\n");
   ProcHead();
-  accept( semic, 1);
+  accept( semic, 151);
   ProcBody();
-  accept( ident, 1);
+  accept( ident, 124);
   if ( debugMode) printf( "Out ProcDecl\n");
 
 }
@@ -1495,7 +1511,7 @@ void ProcHead()
   */
 
   if ( debugMode) printf( "In ProcHead\n");
-  accept( PROCEDURE_SYM, 1);
+  accept( PROCEDURE_SYM, 162);
   if ( sym == lparen)
   {
     // first of receiver
@@ -1534,7 +1550,7 @@ void ProcBody()
     expr();
   }
 
-  accept( END_SYM, 1);
+  accept( END_SYM, 155);
   if ( debugMode) printf( "Out ProcBody\n");
 }
 
@@ -1545,7 +1561,7 @@ void FormParams()
   */
 
   if ( debugMode) printf( "In FormParams\n");
-  accept( lparen, 1);
+  accept( lparen, 143);
 
   if ( sym != rparen) {
     FormParamSect();
@@ -1557,7 +1573,7 @@ void FormParams()
     }
   }
 
-  accept( rparen, 1);
+  accept( rparen, 142);
 
   if ( sym == colon)
   {
@@ -1581,7 +1597,7 @@ void FormParamSect()
     nextsym();
   }
 
-  accept( ident, 1);
+  accept( ident, 124);
   while ( sym == comma)
   {
     writesym();
@@ -1589,7 +1605,7 @@ void FormParamSect()
     accept( ident, 1);
   }
 
-  accept( colon, 1);
+  accept( colon, 153);
   FormType();
   if ( debugMode) printf( "Out FormParamSect\n");
 }
@@ -1605,7 +1621,7 @@ void FormType()
   {
     writesym();
     nextsym();
-    accept( OF_SYM, 1);
+    accept( OF_SYM, 158);
   }
 
   if ( sym == PROCEDURE_SYM) 
@@ -1626,8 +1642,8 @@ void ForwardDecl()
   */
 
   if ( debugMode) printf( "In ForwardDecl\n");
-  accept( PROCEDURE_SYM, 1);
-  accept( carat, 1);
+  accept( PROCEDURE_SYM, 162);
+  accept( carat, 144);
   // first of receiver is (
   if ( sym == lparen)
   {
@@ -1649,23 +1665,23 @@ void Receiver()
   */
 
   if ( debugMode) printf( "In Receiver\n");
-  accept( lparen, 1);
+  accept( lparen, 143);
   if ( sym == VAR_SYM)
   {
     writesym();
     nextsym();
   }
-  accept( ident, 1);
-  accept( colon, 1);
+  accept( ident, 124);
+  accept( colon, 153);
   if ( sym == ident || sym == REAL_SYM || sym == INTEGER_SYM) {
     writesym();
     nextsym();
   }
   else
   {
-    error( ident, 1);
+    error( ident, 124);
   }
-  accept( rparen, 1);
+  accept( rparen, 142);
   if ( debugMode) printf( "Out Receiver\n");
 }
 
@@ -1745,7 +1761,7 @@ void AssignStat()
 
   if ( debugMode) printf( "In AssignStat\n");
   designator();
-  accept( assign, 1);
+  accept( assign, 133);
   expr();
   if ( debugMode) printf( "Out AssignStat\n");
 }
@@ -1775,9 +1791,9 @@ void IfStat()
   */
 
   if ( debugMode) printf( "In IfStat\n");
-  accept( IF_SYM, 1);
+  accept( IF_SYM, 163);
   expr();
-  accept( THEN_SYM, 1);
+  accept( THEN_SYM, 136);
   StatSeq();
 
   while ( sym == ELSIF_SYM)
@@ -1785,7 +1801,7 @@ void IfStat()
     writesym();
     nextsym();
     expr();
-    accept( THEN_SYM, 1);
+    accept( THEN_SYM, 136);
     StatSeq();
   }
 
@@ -1796,7 +1812,7 @@ void IfStat()
     StatSeq();
   }
 
-  accept( END_SYM, 1);
+  accept( END_SYM, 155);
   if ( debugMode) printf( "Out IfStat\n");
 }
 
@@ -1808,9 +1824,9 @@ void CaseStat()
   */
 
   if ( debugMode) printf( "In CaseStat\n");
-  accept( CASE_SYM, 1);
+  accept( CASE_SYM, 164);
   expr();
-  accept( OF_SYM, 1);
+  accept( OF_SYM, 158);
   Case();
 
   while ( sym == OR_SYM)
@@ -1827,7 +1843,7 @@ void CaseStat()
     StatSeq();
   }
 
-  accept( END_SYM, 1);
+  accept( END_SYM, 155);
   if ( debugMode) printf( "Out CaseStat\n");
 
 }
@@ -1843,7 +1859,7 @@ void Case() // uppercase 'Case' since 'case' is reserved in C
   if ( isLabel( sym))  // then, this is ostensibly not a null rule
   {
     CaseLabList();
-    accept( colon, 1);
+    accept( colon, 153);
     StatSeq();
   }
   if ( debugMode) printf( "Out Case\n");
@@ -1909,9 +1925,9 @@ void WhileStat()
   */
 
   if ( debugMode) printf( "In WhileStat\n");
-  accept( WHILE_SYM, 1);
+  accept( WHILE_SYM, 165);
   expr();
-  accept( DO_SYM, 1);
+  accept( DO_SYM, 166);
   StatSeq();
 
   while ( sym == ELSIF_SYM)
@@ -1919,11 +1935,11 @@ void WhileStat()
     writesym();
     nextsym();
     expr();
-    accept( DO_SYM, 1);
+    accept( DO_SYM, 166);
     StatSeq();
   }
 
-  accept( END_SYM, 1);
+  accept( END_SYM, 155);
   if ( debugMode) printf( "Out WhileStat\n");
 }
 
@@ -1934,9 +1950,9 @@ void RepeatStat()
   */
 
   if ( debugMode) printf( "In RepeatStat\n");
-  accept( REPEAT_SYM, 1);
+  accept( REPEAT_SYM, 167);
   StatSeq();
-  accept( UNTIL_SYM, 1);
+  accept( UNTIL_SYM, 168);
   expr();
   if ( debugMode) printf( "Out RepeatStat\n");
 }
@@ -1948,21 +1964,22 @@ void ForStat()
   */
 
   if ( debugMode) printf( "In ForStat\n");
-  accept( FOR_SYM, 1);
-  accept( ident, 1);
-  accept( assign, 1);
+  accept( FOR_SYM, 169);
+  accept( ident, 124);
+  accept( assign, 133);
   expr();
-  accept( TO_SYM, 1);
+  accept( TO_SYM, 161);
 
   if ( sym == BY_SYM)
-  {writesym();
+  {
+    writesym();
     nextsym();
     ConstExpr();
   }
 
-  accept( DO_SYM, 1);
+  accept( DO_SYM, 166);
   StatSeq();
-  accept( END_SYM, 1);
+  accept( END_SYM, 155);
   if ( debugMode) printf( "Out ForStat\n");
 }
 
@@ -1973,9 +1990,9 @@ void LoopStat()
   */
 
   if ( debugMode) printf( "In LoopStat\n");
-  accept( LOOP_SYM, 1);
+  accept( LOOP_SYM, 170);
   StatSeq();
-  accept( END_SYM, 1);
+  accept( END_SYM, 155);
   if ( debugMode) printf( "Out LoopStat\n");
 }
 
@@ -1986,7 +2003,7 @@ void ExitStat()
   */
 
   if ( debugMode) printf( "In ExitStat\n");
-  accept( EXIT_SYM, 1);
+  accept( EXIT_SYM, 171);
   if ( debugMode) printf( "Out ExitStat\n");
 }
 
@@ -1999,9 +2016,9 @@ void WithStat()
 	*/
 
   if ( debugMode) printf( "In WithStat\n");
-  accept( WITH_SYM, 1);
+  accept( WITH_SYM, 172);
   guard();
-  accept( DO_SYM, 1);
+  accept( DO_SYM, 166);
   StatSeq();
 
   while ( sym == OR_SYM)
@@ -2009,7 +2026,7 @@ void WithStat()
     writesym();
     nextsym();
     guard();
-    accept( DO_SYM, 1);
+    accept( DO_SYM, 166);
     StatSeq();
   } 
 
@@ -2020,7 +2037,7 @@ void WithStat()
     StatSeq();
   }     			
 
-  accept( END_SYM, 1);	
+  accept( END_SYM, 155);	
   if ( debugMode) printf( "Out WithStat\n");
 }
 
@@ -2032,7 +2049,7 @@ void guard()
 
   if ( debugMode) printf( "In guard\n");
 	qualident();
-	accept( colon, 1);
+	accept( colon, 153);
 	qualident();
   if ( debugMode) printf( "Out guard\n");
 }
@@ -2154,7 +2171,7 @@ void set()
 	*/
 
   if ( debugMode) printf( "In set\n");
-	accept( lcurb, 1);
+	accept( lcurb, 145);
 
 	if ( sym != rcurb)
 	{
@@ -2168,7 +2185,7 @@ void set()
 		}
 	}
 
-	accept( rcurb, 1);
+	accept( rcurb, 146);
   if ( debugMode) printf( "Out set\n");
 }
 
@@ -2229,7 +2246,7 @@ void selector()
   	case lbrac:
   		nextsym();
   		ExprList();
-  		accept( rbrac, 1);
+  		accept( rbrac, 147);
   		break;
   	case carat:
   		nextsym();
@@ -2237,7 +2254,7 @@ void selector()
   	case lparen:
   		nextsym();
   		qualident();
-  		accept( rparen, 1);
+  		accept( rparen, 142);
   		break;
   	default:
   		error( invalid_sym, 1);
@@ -2253,13 +2270,13 @@ void ActParams()
 	*/
 
   if ( debugMode) printf( "In ActParams\n");
-	accept( lparen, 1);
+	accept( lparen, 143);
 	if ( sym != rparen)
 	{
 		ExprList();
 	}
 
-	accept( rparen, 1);
+	accept( rparen, 142);
   if ( debugMode) printf( "Out ActParams\n");
 }
 
@@ -2303,7 +2320,7 @@ void ScaleFac()
 		nextsym();
 	}
 
-	accept( int_number, 1); // this is digit { digit }
+	accept( int_number, 122); // this is digit { digit }
   if ( debugMode) printf( "Out ScaleFac\n");
 }
 
