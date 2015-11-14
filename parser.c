@@ -93,9 +93,32 @@ void InitErrMsgs()
   errmsg[ 138][ 0] = "DO expected";
   errmsg[ 140][ 0] = "Relational operator expected";
   errmsg[ 142][ 0] = ") expected";
+  errmsg[ 143][ 0] = "( expected";
+  errmsg[ 144][ 0] = "^ expected";
+  errmsg[ 145][ 0] = "{ expected";
+  errmsg[ 146][ 0] = "} expected";
+  errmsg[ 147][ 0] = "] expected";
   errmsg[ 151][ 0] = "Semicolon expected";
-  errmsg[ 152][ 0] = "PROGRAM expected";
   errmsg[ 153][ 0] = "colon expected";
+  errmsg[ 154][ 0] = "MODULE expected";
+  errmsg[ 155][ 0] = "END expected";
+  errmsg[ 156][ 0] = "IMPORT expected";
+  errmsg[ 157][ 0] = "ARRAY expected";
+  errmsg[ 158][ 0] = "OF expected";
+  errmsg[ 159][ 0] = "RECORD expected";
+  errmsg[ 160][ 0] = "POINTER expected";
+  errmsg[ 161][ 0] = "TO expected";
+  errmsg[ 162][ 0] = "PROCEDURE expected";
+  errmsg[ 163][ 0] = "IF expected";
+  errmsg[ 164][ 0] = "CASE expected";
+  errmsg[ 165][ 0] = "WHILE expected";
+  errmsg[ 166][ 0] = "DO expected";
+  errmsg[ 167][ 0] = "REPEAT expected";
+  errmsg[ 168][ 0] = "UNTIL expected";
+  errmsg[ 169][ 0] = "FOR expected";
+  errmsg[ 170][ 0] = "LOOP expected";
+  errmsg[ 171][ 0] = "EXIT expected";
+  errmsg[ 172][ 0] = "WITH expected";
 } // end InitErrMsgs
 
 // initialize special syms (one-char syms)
