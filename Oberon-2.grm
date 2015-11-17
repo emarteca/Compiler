@@ -78,7 +78,7 @@ Note: The metacharacters are -> [ ] { } ( ) | where
 40. WhileStat -> WHILE expr DO StatSeq
                  { ELSIF expr DO StatSeq } END
 
-41. RepeatStat ->REPEAT StatSeq UNTIL expr
+41. RepeatStat -> REPEAT StatSeq UNTIL expr
 
 42. ForStat -> FOR ident := expr TO expr [ BY ConstExpr ] DO StatSeq END
 
