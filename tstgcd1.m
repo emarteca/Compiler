@@ -1,17 +1,21 @@
-MODULE tstgcd;
-  VAR m: INTEGER;
+MODULE tstgcd1;
+  IMPORT In, Out;
+  VAR m, n: INTEGER;
 
-  PROCEDURE mulByTwo(VAR m: INTEGER): INTEGER;
+  PROCEDURE gcd(m, n: INTEGER): INTEGER;
   BEGIN
-    m := m * 2;
-
-  END mulByTwo;
+    WHILE m > n DO
+      m := m - n
+    ELSIF n > m DO
+      n := n - m
+    END;
+    RETURN m
+  END gcd;
 
 BEGIN
- 
-  m := 2; 
- 
-  mulByTwo( m);
-
-  Out.Int( m);
-END tstgcd.
+  In.Int( m);
+  In.Int( n);
+  
+  Out.Int( gcd( m, n), 8);
+  Out.Ln;
+END tstgcd1.

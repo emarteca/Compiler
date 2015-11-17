@@ -14,7 +14,7 @@
 
 typedef enum { false, true } bool;  // since bool isn't a type in C
 
-bool debugMode = false;
+bool debugMode = true;
 
 const int nreswrd = 41;       // number of reserved words
 const int inbuffsize = 256;   // input buffer (line) size
@@ -1043,7 +1043,7 @@ bool isMulOp( Token sym1)
 
 bool inSelectorFirstSet( Token sym1)
 {
-	return ( sym1 == per || sym1 == lbrac || sym1 == carat || sym1 == lparen);
+	return ( sym1 == per || sym1 == lbrac || sym1 == carat); // || sym1 == lparen);
 }
 
 bool isLabel( Token sym1)
@@ -2230,6 +2230,27 @@ void elem()
   if ( debugMode) printf( "Out elem\n");
 }
 
+// TEMPORARY
+// void call()
+// {
+//   /*
+//     This is acting in temp of the proc call beginning,
+//     to avoid the problem of ( qualident ) in selector vs ( ExprList )
+//     in ActParams.
+//   */
+//   if ( debugMode) printf( "In call\n");
+  
+//   qualident();
+//   if ( sym == per)
+//   {
+//     // then it's a .wte
+//     nextsym();
+//     accept( ident, 1);
+//   }
+
+//   if ( debugMode) printf( "Out call\n");
+// }
+
 void designator()
 {
 	/*
@@ -2274,10 +2295,10 @@ void selector()
   	case carat:
   		nextsym();
   		break;
-  	case lparen:
-  		nextsym();
-  		qualident();
-  		accept( rparen, 142);
+  	// case lparen:
+  	// 	nextsym();
+  	// 	qualident();
+  	// 	accept( rparen, 142);
   		break;
   	default:
   		error( invalid_sym, 1);
