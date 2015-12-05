@@ -11,7 +11,6 @@
   Ellen Arteca (0297932)
 */
 
-
 typedef enum { false, true } bool;  // since bool isn't a type in C
 
 bool debugMode = false;
@@ -103,12 +102,12 @@ struct stdpstruct
 
 union classdata 
 {
-  union conststruct c;
   struct typstruct t;
   struct varstruct v;
-  struct prostruct p;
+  struct procstruct p;
   struct paramstruct pa;
   struct stdpstruct sp;
+  union conststruct c;
 }; 
 
 typedef enum 
@@ -118,9 +117,9 @@ typedef enum
 
 struct identrec 
 {
-  char[ 25] idname; // identifier spelling (the name)
+  char idname[ 25]; // identifier spelling (the name)
   int previd;
-  int idlev
+  int idlev;
   int idtyp;
   idclass Class;
   union classdata data;
@@ -142,12 +141,62 @@ struct typrec
 };
 
 struct identrec symtab[ 256]; // symbol table
-struct typrec typtab[ 256];   // type table
+const int stsize = 256;
+struct typrec typtab[ 128];   // type table
+const int ttsize = 128;
+int scoptab[ 10];             // scope table
 
 int stptr = 0; 
 int ttptr = 0;
+int currlev = 0; // current scope level
+int maxlev = 10; // max scope level
 
 int inttyp, realtyp, booltyp, chartyp;
+
+
+// method to print the error message corresponding to the index 
+// of eNum in the array errmsg
+void error( Token expSym, int eNum) 
+{
+  fputs( "------------------------------------\n", stdout);
+  fputs( errmsg[ eNum][ 0], stdout);
+  fputs( "\n------------------------------------\n", stdout);
+  // sym = invalid_sym;
+} // end error
+
+
+void strcopy( char *toCopy, char* copyTo)
+{
+  // the end point is probably the null char
+  int i = 0;
+  while( toCopy[ i] != '\0')
+  {
+    copyTo[ i] = toCopy[ i];
+    ++i;
+  }
+}
+
+
+void EnterScop()
+{
+  if ( currlev < maxlev)
+  {
+    ++ currlev;
+    scoptab[ currlev] = 0; // create entry for new scope level
+  }
+  else
+  {
+    printf( "FATAL ERROR: max scope level reached");
+    exit( 0);
+  }
+}
+
+void ExitScop()
+{
+  -- currlev;
+}
+
+
 
 void enterstdtypes()
 {
@@ -180,15 +229,72 @@ void enterstdtypes()
 void enterstdident( char* id, idclass cls, int ttp)
 {
   ++ stptr;
-  symtab[ stptr].idname = id;
+  strcopy( id, symtab[ stptr].idname);
   symtab[ stptr].previd = scoptab[ currlev];
   symtab[ stptr].idlev = currlev;
   symtab[ stptr].idtyp = ttp;
   symtab[ stptr].Class = cls;
+
+  scoptab[ currlev] = stptr;
+}
+
+void LookupId( char* id, int *stp)
+{
+  int lev;
+  strcopy( id, symtab[ 0].idname);
+  lev = currlev;
+
+  do {
+    *stp = scoptab[ lev];
+    while( strcmp( symtab[ *stp].idname, id) == 0)
+    {
+      *stp = symtab[ *stp].previd;
+    }
+    -- lev;
+  } while( *stp == 0 && lev >= 0);
+
+  if( *stp == 0)
+  {
+    error( invalid_sym, 11);
+  }
+}
+
+void InsertId( char* id, idclass cls)
+{
+  int stp;
+  strcopy( id, symtab[ 0].idname); // sentinel for search
+  stp = scoptab[ currlev]; // top of symtab for current scope
+  while( strcmp( symtab[ stp].idname, id) == 0) // if words are equal
+  {
+    stp = symtab[ stp].previd; // searching current scope
+  }
+  if( stp == 0)
+  {
+    error( invalid_sym, 12); // multiply declared ident
+  }
+
+  if( stptr < stsize)
+  {
+    ++ stptr;
+  }
+  else
+  {
+    printf( "Symbol table overflow... exiting now");
+    exit( 0);
+  }
+
+  strcopy( id, symtab[ stptr].idname);
+  symtab[ stptr].Class = cls;
+  symtab[ stptr].idlev = currlev;
+  symtab[ stptr].previd = scoptab[ currlev];
+
+  scoptab[ currlev] = stptr;
 }
 
 void InitSymTab()
 {
+  scoptab[ currlev] = 0; // currlev is already 0
+
   // there are 27 stdidents in Oberon (ostensibly)
   char *stdidents[ 27][ 25];
 
@@ -220,6 +326,8 @@ void InitSymTab()
   stdidents[ 25][ 0] = "Out.Ln";
   stdidents[ 26][ 0] = "In.Int";
 
+  enterstdtypes();
+
   enterstdident( stdidents[ 17][ 0], typcls, inttyp);     // INTEGER
   enterstdident( stdidents[  4][ 0], typcls, realtyp);    // REAL
   enterstdident( stdidents[  1][ 0], typcls, chartyp);    // CHAR
@@ -230,11 +338,9 @@ void InitSymTab()
 
   // std function calls (built in)
   enterstdident( stdidents[  0][ 0], stdpcls, 0);         // ABS
-  symtab[ stptr].classdata.s.procnum = 0;
+  symtab[ stptr].data.sp.procnum = 0;
   enterstdident( stdidents[ 13][ 0], stdpcls, 0);         // ODD  
-  symtab[ stptr].classdata.s.procnum = 1;
-
-
+  symtab[ stptr].data.sp.procnum = 1;
 }
 
 // initialize error msgs 
@@ -513,16 +619,6 @@ void InitCompile()
   InitSymNames();
   InitErrMsgs();
 } // end InitCompile
-
-// method to print the error message corresponding to the index 
-// of eNum in the array errmsg
-void error( Token expSym, int eNum) 
-{
-  fputs( "------------------------------------\n", stdout);
-  fputs( errmsg[ eNum][ 0], stdout);
-  fputs( "\n------------------------------------\n", stdout);
-  // sym = invalid_sym;
-} // end error
 
 // return true if c is a separator
 // (whitespace, horizontal tab, newline, carriage return)
