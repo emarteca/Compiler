@@ -238,6 +238,28 @@ void enterstdident( char* id, idclass cls, int ttp)
   scoptab[ currlev] = stptr;
 }
 
+void printsymtab()
+{
+  printf( "\n");
+  printf( "\nName\tLevel\tType\tPrevid\tAddr");
+  printf( "\n");
+  int i;
+  for( i = 0; i < stptr; ++ i)
+  {
+    printf( "%s", symtab[ i].idname);
+    printf( "\t%d", symtab[ i].idlev);
+    printf( "\t%d", symtab[ i].idtyp);
+    printf( "\t%d", symtab[ i].previd);
+
+    // case for type TODO
+
+    printf( "\n");
+  }
+
+  printf( "\n");
+  // scoptab TODO
+}
+
 void LookupId( char* id, int *stp)
 {
   int lev;
@@ -618,6 +640,8 @@ void InitCompile()
   InitSpSyms();
   InitSymNames();
   InitErrMsgs();
+
+  InitSymTab();
 } // end InitCompile
 
 // return true if c is a separator
@@ -1479,6 +1503,7 @@ void DeclSeq()
       accept( semic, 151);
       ProcBody();
       accept( ident, 124);
+      InsertId( idbuff, procls);
     }
     accept( semic, 151);
   }
@@ -1790,6 +1815,7 @@ void ProcDecl()
   accept( semic, 151);
   ProcBody();
   accept( ident, 124);
+  InsertId( idbuff, paramcls);
   if ( debugMode) printf( "Out ProcDecl\n");
 
 }
@@ -1888,6 +1914,7 @@ void FormParamSect()
   }
 
   accept( ident, 124);
+  InsertId( idbuff, paramcls);
   while ( sym == comma)
   {
     writesym();
@@ -1962,6 +1989,7 @@ void Receiver()
     nextsym();
   }
   accept( ident, 124);
+  InsertId( idbuff, varcls);
   accept( colon, 153);
   if ( sym == ident || sym == REAL_SYM || sym == INTEGER_SYM) {
     writesym();
@@ -2255,6 +2283,7 @@ void ForStat()
 
   if ( debugMode) printf( "In ForStat\n");
   accept( FOR_SYM, 169);
+  InsertId( idbuff, varcls);
   accept( ident, 124);
   accept( assign, 133);
   expr();
@@ -2672,6 +2701,7 @@ int main( int argc, char **argv)
 
     nextsym();
     module();
+    printsymtab();
 
    return(0);
 } // end main
