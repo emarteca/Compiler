@@ -1370,7 +1370,7 @@ void module()
     InsertId( idbuff, stdpcls);
     accept( semic, 151);
 
-   // EnterScop();
+    EnterScop();
 
     if ( sym == IMPORT_SYM)
     {
@@ -1386,7 +1386,7 @@ void module()
     	StatSeq();
     }
 
-    //ExitScop();
+    ExitScop();
 
     accept( END_SYM, 155);
     accept( ident, 124);
@@ -1649,6 +1649,9 @@ void RecType()
 
   if ( debugMode) printf( "In RecType\n");
   accept( RECORD_SYM, 159);
+
+  EnterScop();
+
   if ( sym == lparen)
   {
     writesym();
@@ -1659,11 +1662,10 @@ void RecType()
 
   if ( sym != END_SYM)
   {
-    //EnterScop();
     FieldListSeq();
-    //ExitScop();
   }
 
+  ExitScop();
   accept( END_SYM, 155);
 
   if ( debugMode) printf( "Out RecType\n");
@@ -1780,7 +1782,9 @@ void ProcType()
   accept( PROCEDURE_SYM, 162);
   if ( sym == lparen)
   {
+    EnterScop();
     FormParams();
+    ExitScop();
   }
   if ( debugMode) printf( "Out ProcType\n");
 }
@@ -1830,6 +1834,9 @@ void ProcDecl()
   ProcBody();
   accept( ident, 124);
   InsertId( idbuff, paramcls);
+
+  ExitScop();
+
   if ( debugMode) printf( "Out ProcDecl\n");
 
 }
@@ -1842,6 +1849,7 @@ void ProcHead()
 
   if ( debugMode) printf( "In ProcHead\n");
   accept( PROCEDURE_SYM, 162);
+  
   if ( sym == lparen)
   {
     // first of receiver
@@ -1850,6 +1858,7 @@ void ProcHead()
 
   identdef( procls);
 
+  EnterScop();
   if ( sym == lparen)
   {
     // first of FormParams
