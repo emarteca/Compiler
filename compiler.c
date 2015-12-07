@@ -13,7 +13,7 @@
 
 typedef enum { false, true } bool;  // since bool isn't a type in C
 
-bool debugMode = false;
+bool debugMode = true;
 
 const int nreswrd = 41;       // number of reserved words
 const int inbuffsize = 256;   // input buffer (line) size
@@ -226,25 +226,13 @@ void enterstdtypes()
 
 }
 
-void enterstdident( char* id, idclass cls, int ttp)
-{
-  ++ stptr;
-  strcopy( id, symtab[ stptr].idname);
-  symtab[ stptr].previd = scoptab[ currlev];
-  symtab[ stptr].idlev = currlev;
-  symtab[ stptr].idtyp = ttp;
-  symtab[ stptr].Class = cls;
-
-  scoptab[ currlev] = stptr;
-}
-
 void printsymtab()
 {
   printf( "\n");
   printf( "\nName\tLevel\tType\tPrevid\tAddr");
   printf( "\n");
   int i;
-  for( i = 0; i < stptr; ++ i)
+  for( i = 1; i < stptr + 1; ++ i)
   {
     printf( "%s", symtab[ i].idname);
     printf( "\t%d", symtab[ i].idlev);
@@ -258,6 +246,20 @@ void printsymtab()
 
   printf( "\n");
   // scoptab TODO
+}
+
+void enterstdident( char* id, idclass cls, int ttp)
+{
+  ++ stptr;
+  strcopy( id, symtab[ stptr].idname);
+  symtab[ stptr].previd = scoptab[ currlev];
+  symtab[ stptr].idlev = currlev;
+  symtab[ stptr].idtyp = ttp;
+  symtab[ stptr].Class = cls;
+
+  scoptab[ currlev] = stptr;
+
+  printsymtab();
 }
 
 void LookupId( char* id, int *stp)
@@ -286,6 +288,7 @@ void InsertId( char* id, idclass cls)
   int stp;
   strcopy( id, symtab[ 0].idname); // sentinel for search
   stp = scoptab[ currlev]; // top of symtab for current scope
+  printf( "Here!!!!!!!!!!!!!!!!!!!!!!!!!!%d", stptr);
   while( strcmp( symtab[ stp].idname, id) == 0) // if words are equal
   {
     stp = symtab[ stp].previd; // searching current scope
@@ -311,6 +314,8 @@ void InsertId( char* id, idclass cls)
   symtab[ stptr].previd = scoptab[ currlev];
 
   scoptab[ currlev] = stptr;
+
+  printsymtab();
 }
 
 void InitSymTab()
@@ -363,6 +368,7 @@ void InitSymTab()
   symtab[ stptr].data.sp.procnum = 0;
   enterstdident( stdidents[ 13][ 0], stdpcls, 0);         // ODD  
   symtab[ stptr].data.sp.procnum = 1;
+
 }
 
 // initialize error msgs 
@@ -1361,7 +1367,10 @@ void module()
 
     accept( MODULE_SYM, 154);
     accept( ident, 124);
+    InsertId( idbuff, stdpcls);
     accept( semic, 151);
+
+   // EnterScop();
 
     if ( sym == IMPORT_SYM)
     {
@@ -1376,6 +1385,8 @@ void module()
     	nextsym();
     	StatSeq();
     }
+
+    //ExitScop();
 
     accept( END_SYM, 155);
     accept( ident, 124);
@@ -1482,7 +1493,7 @@ void DeclSeq()
       {
         Receiver();
       }
-      identdef();
+      identdef( procls);
       if ( sym == lparen)
       {
         FormParams();
@@ -1495,7 +1506,7 @@ void DeclSeq()
       {
         Receiver();
       }
-      identdef();
+      identdef( procls);
       if ( sym == lparen)
       {
         FormParams();
@@ -1519,21 +1530,21 @@ void ConstDecl()
 
   if ( debugMode) printf( "In ConstDecl\n");
 
-  identdef();
+  identdef( constcls);
   accept( equal, 123);
   ConstExpr(); 
 
   if ( debugMode) printf( "Out ConstDecl\n");   
 }
 
-void identdef()
+void identdef( idclass cls)
 {
   /*
     identdef -> ident [ * | - ]
   */
 
   if ( debugMode) printf( "In identdef\n");
-
+  InsertId( idbuff, cls);
   accept( ident, 124);
   if ( sym == star || sym == hyphen)
   {
@@ -1561,7 +1572,8 @@ void TypeDecl()
   */
 
   if ( debugMode) printf( "In TypeDecl\n");
-  identdef();
+  // ident should already exist here
+  identdef( typcls);
   accept( equal, 123);
   StrucType();
   if ( debugMode) printf( "Out TypeDecl\n");
@@ -1647,7 +1659,9 @@ void RecType()
 
   if ( sym != END_SYM)
   {
+    //EnterScop();
     FieldListSeq();
+    //ExitScop();
   }
 
   accept( END_SYM, 155);
@@ -1720,25 +1734,25 @@ void FieldList()
   */
 
   if ( debugMode) printf( "In FieldList\n");
-  IdentList();
+  IdentList( varcls);
   accept( colon, 153);
   type();
   if ( debugMode) printf( "Out FieldList\n");
 }
 
-void IdentList()
+void IdentList( idclass cls)
 {
   /*
     IdentList -> identdef { , identdef }
   */
 
   if ( debugMode) printf( "In IdentList\n");
-  identdef();
+  identdef( cls);
   while( sym == comma)
   {
     writesym();
     nextsym();
-    identdef();
+    identdef( cls);
   }
   if ( debugMode) printf( "Out IdentList\n");
 }
@@ -1778,7 +1792,7 @@ void VarDecl()
   */
 
   if ( debugMode) printf( "In VarDecl\n");
-  IdentList();
+  IdentList( varcls);
   accept( colon, 153);
   type();
   if ( debugMode) printf( "Out VarDecl\n");
@@ -1834,7 +1848,7 @@ void ProcHead()
     Receiver();
   }
 
-  identdef();
+  identdef( procls);
 
   if ( sym == lparen)
   {
@@ -1967,7 +1981,7 @@ void ForwardDecl()
     Receiver();
   }
 
-  identdef();
+  identdef( procls);
   if ( sym == lparen)
   {
     FormParams();
@@ -2051,6 +2065,9 @@ void stat()
   }
   else if ( sym == ident)
   {
+    InsertId( idbuff, varcls);  // TODO check if already defined
+                                // it should break ostensibly if 
+                                // it's a proc call to an undefined proc
     designator();
     if ( sym == assign)
     {
