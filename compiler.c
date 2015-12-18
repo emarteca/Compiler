@@ -382,6 +382,7 @@ void InitErrMsgs()
   errmsg[  10][ 0] = "Error in general number format";
   errmsg[  16][ 0] = "Error in hex number formatting";
   errmsg[  30][ 0] = "Number too large";
+  errmsg[  33][ 0] = "Type expected";
   errmsg[  39][ 0] = "39";
   errmsg[  45][ 0] = "Unfinished comment... EOF reached";
   errmsg[  50][ 0] = "String delimiter missing";
@@ -1796,13 +1797,50 @@ void VarDecl()
   */
 
   if ( debugMode) printf( "In VarDecl\n");
-  IdentList( varcls);
+  // IdentList( varcls);
+
+  int ttp, stp1, stp2;
+
+  if ( sym == ident)
+  {
+    InsertId( idbuff, varcls);
+    stp1 = stptr;
+    nextsym();
+  }
+  else
+  {
+    error( ident, 1);
+  }
+
+  while ( sym == comma)
+  {
+    nextsym();
+    if ( sym == ident)
+    {
+      InsertId( idbuff, varcls);
+      nextsym();
+    }
+    else
+    {
+      error( ident, 1);
+    }
+  }
+  stp2 = stptr;
   accept( colon, 153);
-  type();
+  type( &ttp);
+
+  do {
+    symtab[ stp1].idtyp = ttp;
+    symtab[ stp1].varaddr = displ;
+    displ = displ + typtab[ ttp].size;
+
+    ++ stp1;
+  } while( stp1 <= stp2);
+
   if ( debugMode) printf( "Out VarDecl\n");
 }
 
-void type()
+void type( int *ttp)
 {
   /*
     type -> qualident | StrucType
@@ -1811,7 +1849,18 @@ void type()
   if ( debugMode) printf( "In type\n");
   if ( sym == ident || sym == INTEGER_SYM || sym == REAL_SYM)
   {
-    qualident();
+    int stp;
+    LookupId( idbuff, &stp);
+    if ( stp != 0)
+    {
+      if ( symtab[ stp].Class != typcls)
+      {
+        error( TYPE_SYM, 33); 
+      }
+      *ttp = symtab[ stp].idtyp;
+      nextsym();
+    }
+    //qualident();
   }
   else
   {
@@ -1856,13 +1905,28 @@ void ProcHead()
     Receiver();
   }
 
-  identdef( procls);
+  // identdef( procls);
+  int procptr;
+  if ( sym == ident)
+  {
+    InsertId( idbuff, proccls); 
+    procptr = stptr; // save ptr to symtab entry for proc
+  }
+  else
+  {
+    error( ident, 1);
+  }
 
   EnterScop();
   if ( sym == lparen)
   {
     // first of FormParams
     FormParams();
+  }
+  else
+  {
+    // no param list
+    symtab[ procptr]. lastparam = 0;
   }
   if ( debugMode) printf( "Out ProcHead\n");
 }
@@ -1910,6 +1974,7 @@ void FormParams()
       nextsym();
       FormParamSect();
     }
+    symtab[ procptr].lastparam = stptr;
   }
 
   accept( rparen, 142);
@@ -1929,20 +1994,47 @@ void FormParamSect()
     FormParamSect -> [ VAR ] ident { , ident } : FormType
   */
 
+  bool isVar; 
+  int paramptr;
+
   if ( debugMode) printf( "In FormParamSect\n");
   if ( sym == VAR_SYM)
   {
+    isVar = true;
     writesym();
     nextsym();
   }
+  else
+  {
+    isVar = false;
+  }
 
-  accept( ident, 124);
-  InsertId( idbuff, paramcls);
+  // accept( ident, 124);
+  if ( sym == ident)
+  {
+    InsertId( idbuff, paramcls);
+    paramptr = stptr;
+    nextsym();
+  }
+  else
+  {
+    error( ident, 124);
+  }
+  
+  
   while ( sym == comma)
   {
     writesym();
     nextsym();
-    accept( ident, 1);
+    if ( sym == ident)
+    {
+      InsertId( idbuff, paramcls);
+      nextsym();
+    }
+    else
+    {
+      error( ident, 1);
+    }
   }
 
   accept( colon, 153);
