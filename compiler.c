@@ -112,7 +112,7 @@ union classdata
 
 typedef enum 
 {
-  constcls, typcls, varcls, procls, paramcls, stdpcls
+  constcls, typcls, varcls, proccls, paramcls, stdpcls
 } idclass;  
 
 struct identrec 
@@ -1449,6 +1449,8 @@ void DeclSeq()
 
   if ( debugMode) printf( "In DeclSeq\n");
 
+  int displ = 1;
+
   while ( sym == CONST_SYM || sym == TYPE_SYM || sym == VAR_SYM)
   {
     writesym();
@@ -1475,7 +1477,7 @@ void DeclSeq()
         nextsym();
         while ( sym == ident)
         {
-          VarDecl();
+          VarDecl( &displ);
           accept( semic, 151);
         }
     }
@@ -1494,10 +1496,11 @@ void DeclSeq()
       {
         Receiver();
       }
-      identdef( procls);
+      identdef( proccls);
+      int procptr = stptr;
       if ( sym == lparen)
       {
-        FormParams();
+        FormParams( procptr);
       }
     }
     else
@@ -1507,15 +1510,16 @@ void DeclSeq()
       {
         Receiver();
       }
-      identdef( procls);
+      identdef( proccls);
+      int procptr = stptr;
       if ( sym == lparen)
       {
-        FormParams();
+        FormParams( procptr);
       }
       accept( semic, 151);
       ProcBody();
       accept( ident, 124);
-      InsertId( idbuff, procls);
+      InsertId( idbuff, proccls);
     }
     accept( semic, 151);
   }
@@ -1784,13 +1788,13 @@ void ProcType()
   if ( sym == lparen)
   {
     EnterScop();
-    FormParams();
+    FormParams( 0); // procptr = 0 for now 
     ExitScop();
   }
   if ( debugMode) printf( "Out ProcType\n");
 }
 
-void VarDecl()
+void VarDecl( int *displ)
 {
   /*
     VarDecl -> IdentList : type
@@ -1831,8 +1835,8 @@ void VarDecl()
 
   do {
     symtab[ stp1].idtyp = ttp;
-    symtab[ stp1].varaddr = displ;
-    displ = displ + typtab[ ttp].size;
+    symtab[ stp1].data.v.varaddr = *displ;
+    *displ = *displ + typtab[ ttp].size;
 
     ++ stp1;
   } while( stp1 <= stp2);
@@ -1878,6 +1882,9 @@ void ProcDecl()
   */
 
   if ( debugMode) printf( "In ProcDecl\n");
+
+  int displ = -2; // displ for param addressing
+
   ProcHead();
   accept( semic, 151);
   ProcBody();
@@ -1905,7 +1912,7 @@ void ProcHead()
     Receiver();
   }
 
-  // identdef( procls);
+  // identdef( proccls);
   int procptr;
   if ( sym == ident)
   {
@@ -1921,12 +1928,12 @@ void ProcHead()
   if ( sym == lparen)
   {
     // first of FormParams
-    FormParams();
+    FormParams( procptr);
   }
   else
   {
     // no param list
-    symtab[ procptr]. lastparam = 0;
+    symtab[ procptr].data.p.lastparam = 0;
   }
   if ( debugMode) printf( "Out ProcHead\n");
 }
@@ -1957,7 +1964,7 @@ void ProcBody()
   if ( debugMode) printf( "Out ProcBody\n");
 }
 
-void FormParams()
+void FormParams( int procptr)
 {
   /*
     FormParams -> '(' [ FormParamSect { ; FormParamSect } ] ')' [ : qualident ]
@@ -1974,7 +1981,7 @@ void FormParams()
       nextsym();
       FormParamSect();
     }
-    symtab[ procptr].lastparam = stptr;
+    symtab[ procptr].data.p.lastparam = stptr;
   }
 
   accept( rparen, 142);
@@ -2082,10 +2089,11 @@ void ForwardDecl()
     Receiver();
   }
 
-  identdef( procls);
+  identdef( proccls);
+  int procptr = stptr;
   if ( sym == lparen)
   {
-    FormParams();
+    FormParams( procptr);
   }
   if ( debugMode) printf( "Out ForwardDecl\n");
 }
@@ -2166,9 +2174,30 @@ void stat()
   }
   else if ( sym == ident)
   {
-    InsertId( idbuff, varcls);  // TODO check if already defined
+    //InsertId( idbuff, varcls);  // TODO check if already defined
                                 // it should break ostensibly if 
                                 // it's a proc call to an undefined proc
+    int stp = 0;
+    LookupId( idbuff, &stp);
+    if ( stp != 0)
+    {
+      switch ( symtab[ stp].Class)
+      {
+        case varcls:
+        case paramcls:
+          AssignStat( stp);
+          break;
+        case proccls:
+        case stdpcls:
+          ProcCall( stp);
+          break;
+      }
+    }
+    else
+    {
+      error( ident, 1);
+    }
+
     designator();
     if ( sym == assign)
     {
