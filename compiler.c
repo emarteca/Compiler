@@ -48,6 +48,7 @@ char ch;            // current char
 Token sym;          // current symbol
 char inbuff[ 256];  // inbuffsize
 char idbuff[ 16];   // idbuffsize
+char qidbuff[ 16];  // idbuffsize (really, this exists for In.Int etc)
 char strbuff[ 80];  // max size for string
 
 int intval;         // value of current int being read
@@ -196,7 +197,13 @@ void ExitScop()
   -- currlev;
 }
 
-
+void checktypes( int ttp1, int ttp2)
+{
+  if ( ttp1 != ttp2)
+  {
+    error( TYPE_SYM, 1);
+  }
+}
 
 void enterstdtypes()
 {
@@ -229,23 +236,46 @@ void enterstdtypes()
 void printsymtab()
 {
   printf( "\n");
-  printf( "\nName\tLevel\tType\tPrevid\tAddr");
+  printf( "\nID\tName\tLevel\tType\tPrevid\tAddr");
   printf( "\n");
   int i;
   for( i = 1; i < stptr + 1; ++ i)
   {
-    printf( "%s", symtab[ i].idname);
+    printf( "%d:", i);
+    printf( "\t%s", symtab[ i].idname);
     printf( "\t%d", symtab[ i].idlev);
     printf( "\t%d", symtab[ i].idtyp);
     printf( "\t%d", symtab[ i].previd);
 
-    // case for type TODO
-
+    switch( symtab[ i].Class)
+    {
+      case paramcls:
+        printf( "\t%d", symtab[ i].data.pa.paramaddr);
+        if ( symtab[ i].data.pa.varparam == 1)
+        {
+          printf( "\tvarparam");
+        }
+        else
+        {
+          printf( "\tvalparam"); 
+        }
+        break;
+      case proccls:
+        printf( "\t%d", symtab[ i].data.p.paddr);
+        break;
+      case varcls:
+        printf( "\t%d", symtab[ i].data.v.varaddr);
+        break;
+    }
     printf( "\n");
   }
 
   printf( "\n");
-  // scoptab TODO
+  for( i = 0; i < currlev + 1; ++ i)
+  {
+    printf( "\n%d   %d", i, scoptab[ i]);
+  }
+  printf( "\n");
 }
 
 void enterstdident( char* id, idclass cls, int ttp)
@@ -270,7 +300,7 @@ void LookupId( char* id, int *stp)
 
   do {
     *stp = scoptab[ lev];
-    while( strcmp( symtab[ *stp].idname, id) == 0)
+    while( strcmp( symtab[ *stp].idname, id) != 0)
     {
       *stp = symtab[ *stp].previd;
     }
@@ -285,15 +315,16 @@ void LookupId( char* id, int *stp)
 
 void InsertId( char* id, idclass cls)
 {
-  int stp;
+  int stp = 0;
   strcopy( id, symtab[ 0].idname); // sentinel for search
   stp = scoptab[ currlev]; // top of symtab for current scope
-  printf( "Here!!!!!!!!!!!!!!!!!!!!!!!!!!%d", stptr);
-  while( strcmp( symtab[ stp].idname, id) == 0) // if words are equal
+  printf( "Here!!!!!!!!!!!!!!!!!!!!!!!!!!%d", stp);
+  while( strcmp( symtab[ stp].idname, id) != 0 && stp != 0) 
   {
+    //printf( "Here!!!!!!!!!!!!!!!!!!!!!!!!!!%d", stp);
     stp = symtab[ stp].previd; // searching current scope
   }
-  if( stp == 0)
+  if( stp != 0)
   {
     error( invalid_sym, 12); // multiply declared ident
   }
@@ -1364,11 +1395,13 @@ void module()
               END ident .
     */ 
 
+    int displ = 1;
+
     if ( debugMode) printf( "In Module\n");
 
     accept( MODULE_SYM, 154);
     accept( ident, 124);
-    InsertId( idbuff, stdpcls);
+    //InsertId( idbuff, stdpcls);
     accept( semic, 151);
 
     EnterScop();
@@ -1378,7 +1411,7 @@ void module()
     	ImportList();
     }
 
-    DeclSeq();
+    DeclSeq( &displ);
 
     if ( sym == BEGIN_SYM)
     {
@@ -1438,18 +1471,16 @@ void import()
   if ( debugMode) printf( "Out import\n");
 }
 
-void DeclSeq()
+void DeclSeq( int *displ)
 {
   /*
     DeclSeq -> { CONST { ConstDecl ; }
                  | TYPE { TypeDecl ; } 
                  | VAR { VarDecl ; } }
-                 { ProcDecl ; | ForwardDecl ; }
+                 { ProcDecl ; }
   */
 
   if ( debugMode) printf( "In DeclSeq\n");
-
-  int displ = 1;
 
   while ( sym == CONST_SYM || sym == TYPE_SYM || sym == VAR_SYM)
   {
@@ -1477,7 +1508,7 @@ void DeclSeq()
         nextsym();
         while ( sym == ident)
         {
-          VarDecl( &displ);
+          VarDecl( displ);
           accept( semic, 151);
         }
     }
@@ -1485,42 +1516,7 @@ void DeclSeq()
 
   while ( sym == PROCEDURE_SYM)
   {
-    writesym();
-    nextsym();
-    if ( sym == carat) 
-    {
-      // then it's ForwardDecl
-      writesym();
-      nextsym();
-      if ( sym != ident)
-      {
-        Receiver();
-      }
-      identdef( proccls);
-      int procptr = stptr;
-      if ( sym == lparen)
-      {
-        FormParams( procptr);
-      }
-    }
-    else
-    {
-      // it's ProcDecl
-      if ( sym != ident)
-      {
-        Receiver();
-      }
-      identdef( proccls);
-      int procptr = stptr;
-      if ( sym == lparen)
-      {
-        FormParams( procptr);
-      }
-      accept( semic, 151);
-      ProcBody();
-      accept( ident, 124);
-      InsertId( idbuff, proccls);
-    }
+    ProcDecl();
     accept( semic, 151);
   }
 
@@ -1549,7 +1545,7 @@ void identdef( idclass cls)
   */
 
   if ( debugMode) printf( "In identdef\n");
-  InsertId( idbuff, cls);
+  //InsertId( idbuff, cls);
   accept( ident, 124);
   if ( sym == star || sym == hyphen)
   {
@@ -1687,6 +1683,25 @@ void BaseType()
   if ( debugMode) printf( "Out BaseType\n");
 }
 
+void clearQIDBuff()
+{
+  int i;
+  for ( i = 0; i < idbuffsize; ++ i)
+  {
+    qidbuff[ i] = '\0';
+  }
+}
+
+int copyToQID( int indToStart)
+{
+  int i;
+  for ( i = 0; ( i + indToStart) < idbuffsize && idbuff[ i] != '\0'; ++ i)
+  {
+    qidbuff[ i + indToStart] = idbuff[ i]; 
+  }
+  return i;
+}
+
 void qualident()
 {
   /*
@@ -1698,6 +1713,9 @@ void qualident()
   */
 
   if ( debugMode) printf( "In qualident\n");
+
+  clearQIDBuff();
+
   if ( sym == INTEGER_SYM || sym == REAL_SYM)
   {
     writesym();
@@ -1708,11 +1726,16 @@ void qualident()
     accept( ident, 124);
   }
 
+  int newInd = copyToQID( 0); // start at beginning
+
   if ( sym == per)
   {
+    qidbuff[ newInd] = '.'; // this should ostensibly deal with In.Int, etc
+    ++ newInd;
     writesym();
     nextsym();
     accept( ident, 124);
+    copyToQID( newInd);
   }
   if ( debugMode) printf( "Out qualident\n");
 }
@@ -1809,7 +1832,13 @@ void VarDecl( int *displ)
   {
     InsertId( idbuff, varcls);
     stp1 = stptr;
+    writesym();
     nextsym();
+    if ( sym == star || sym == hyphen) 
+    {
+      writesym();
+      nextsym();
+    }
   }
   else
   {
@@ -1818,11 +1847,18 @@ void VarDecl( int *displ)
 
   while ( sym == comma)
   {
+    writesym();
     nextsym();
     if ( sym == ident)
     {
       InsertId( idbuff, varcls);
+      writesym();
       nextsym();
+      if ( sym == star || sym == hyphen)
+      {
+        writesym();
+        nextsym();
+      }
     }
     else
     {
@@ -1859,12 +1895,13 @@ void type( int *ttp)
     {
       if ( symtab[ stp].Class != typcls)
       {
+        printf( "PLPLPLPLPLPLPLPLPL %d ... %d", stp, symtab[ stp].Class);
         error( TYPE_SYM, 33); 
       }
       *ttp = symtab[ stp].idtyp;
-      nextsym();
+      //nextsym();
     }
-    //qualident();
+    qualident(); // ?????
   }
   else
   {
@@ -1887,9 +1924,9 @@ void ProcDecl()
 
   ProcHead();
   accept( semic, 151);
-  ProcBody();
+  ProcBody( &displ);
   accept( ident, 124);
-  InsertId( idbuff, paramcls);
+  //InsertId( idbuff, paramcls);
 
   ExitScop();
 
@@ -1903,7 +1940,7 @@ void ProcHead()
     ProcHead -> PROCEDURE [ Receiver ] identdef [ FormParams ]
   */
 
-  if ( debugMode) printf( "In ProcHead\n");
+  if ( debugMode) printf( "In ProcHeadLOLOL%d\n", scoptab[ currlev]);
   accept( PROCEDURE_SYM, 162);
   
   if ( sym == lparen)
@@ -1913,11 +1950,12 @@ void ProcHead()
   }
 
   // identdef( proccls);
-  int procptr;
+  int procptr;  
   if ( sym == ident)
   {
     InsertId( idbuff, proccls); 
     procptr = stptr; // save ptr to symtab entry for proc
+    nextsym();
   }
   else
   {
@@ -1938,14 +1976,14 @@ void ProcHead()
   if ( debugMode) printf( "Out ProcHead\n");
 }
 
-void ProcBody()
+void ProcBody( int *displ)
 {
   /*
     ProcBody -> DeclSeq [ BEGIN StatSeq ] [ RETURN expr ] END
   */
 
   if ( debugMode) printf( "In ProcBody\n");
-  DeclSeq();
+  DeclSeq( displ);
   if ( sym == BEGIN_SYM)
   {
     writesym();
@@ -1957,7 +1995,8 @@ void ProcBody()
   {
     writesym();
     nextsym();
-    expr();
+    int ttp;
+    expr( &ttp);
   }
 
   accept( END_SYM, 155);
@@ -2177,26 +2216,7 @@ void stat()
     //InsertId( idbuff, varcls);  // TODO check if already defined
                                 // it should break ostensibly if 
                                 // it's a proc call to an undefined proc
-    int stp = 0;
-    LookupId( idbuff, &stp);
-    if ( stp != 0)
-    {
-      switch ( symtab[ stp].Class)
-      {
-        case varcls:
-        case paramcls:
-          AssignStat( stp);
-          break;
-        case proccls:
-        case stdpcls:
-          ProcCall( stp);
-          break;
-      }
-    }
-    else
-    {
-      error( ident, 1);
-    }
+    int ttp;
 
     designator();
     if ( sym == assign)
@@ -2204,7 +2224,7 @@ void stat()
       // then it was AssignStat
       writesym();
       nextsym();
-      expr();
+      expr( &ttp);
     }
     else 
     {
@@ -2227,7 +2247,8 @@ void AssignStat()
   if ( debugMode) printf( "In AssignStat\n");
   designator();
   accept( assign, 133);
-  expr();
+  int ttp;
+  expr( &ttp);
   if ( debugMode) printf( "Out AssignStat\n");
 }
 
@@ -2256,8 +2277,12 @@ void IfStat()
   */
 
   if ( debugMode) printf( "In IfStat\n");
+
+  int ttp;
+
   accept( IF_SYM, 163);
-  expr();
+  expr( &ttp);
+  checktypes( ttp, booltyp);
   accept( THEN_SYM, 136);
   StatSeq();
 
@@ -2265,7 +2290,8 @@ void IfStat()
   {
     writesym();
     nextsym();
-    expr();
+    expr( &ttp);
+    checktypes( ttp, booltyp);
     accept( THEN_SYM, 136);
     StatSeq();
   }
@@ -2289,8 +2315,11 @@ void CaseStat()
   */
 
   if ( debugMode) printf( "In CaseStat\n");
+
+  int ttp;
+
   accept( CASE_SYM, 164);
-  expr();
+  expr( &ttp);
   accept( OF_SYM, 158);
   Case();
 
@@ -2391,7 +2420,9 @@ void WhileStat()
 
   if ( debugMode) printf( "In WhileStat\n");
   accept( WHILE_SYM, 165);
-  expr();
+  int ttp;
+  expr( &ttp);
+  checktypes( ttp, booltyp);
   accept( DO_SYM, 166);
   StatSeq();
 
@@ -2399,7 +2430,8 @@ void WhileStat()
   {
     writesym();
     nextsym();
-    expr();
+    expr( &ttp);
+    checktypes( ttp, booltyp);
     accept( DO_SYM, 166);
     StatSeq();
   }
@@ -2418,7 +2450,9 @@ void RepeatStat()
   accept( REPEAT_SYM, 167);
   StatSeq();
   accept( UNTIL_SYM, 168);
-  expr();
+  int ttp;
+  expr( &ttp);
+  checktypes( ttp, booltyp);
   if ( debugMode) printf( "Out RepeatStat\n");
 }
 
@@ -2429,12 +2463,17 @@ void ForStat()
   */
 
   if ( debugMode) printf( "In ForStat\n");
+
+  int ttp1, ttp2;
+
   accept( FOR_SYM, 169);
   InsertId( idbuff, varcls);
   accept( ident, 124);
   accept( assign, 133);
-  expr();
+  expr( &ttp1);
   accept( TO_SYM, 161);
+  expr( &ttp2);
+  checktypes( ttp1, ttp2);
 
   if ( sym == BY_SYM)
   {
@@ -2520,25 +2559,28 @@ void guard()
   if ( debugMode) printf( "Out guard\n");
 }
 
-void expr()
+void expr( int *ttp)
 {
 	/*
 		expr -> SimplExpr [ relop SimplExpr ]
 	*/
 
   if ( debugMode) printf( "In expr\n");
-	SimplExpr();
+	SimplExpr( ttp);
 
 	while ( isRelOp( sym))
 	{
     writesym();
 		nextsym();
-		SimplExpr();
+    int ttp1;
+		SimplExpr( &ttp1);
+    checktypes( *ttp, ttp1);
 	}
+  *ttp = booltyp; // for expression always bool
   if ( debugMode) printf( "Out expr\n");
 }
 
-void SimplExpr() {
+void SimplExpr( int *ttp) {
 	/* 
 		SimplExpr -> [ + | - ] term { addop term }
 	*/
@@ -2548,19 +2590,36 @@ void SimplExpr() {
 	{
     writesym();
 		nextsym();
+    checktypes( *ttp, inttyp);
 	}
 
-	term();
+	term( ttp);
 
 	while ( isAddOp( sym))
 	{
-		nextsym();
-		term();
+    if ( sym == OR_SYM)
+    {
+      printf( "WAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+      checktypes( *ttp, booltyp);
+    }
+    else
+    {
+      printf( "WIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII%d", inttyp);
+      writesym();
+
+      checktypes( *ttp, inttyp);
+    }
+
+    nextsym();
+
+    int ttp1;
+		term( &ttp1);
+    checktypes( *ttp, ttp1);
 	}
   if ( debugMode) printf( "Out SimplExpr\n");
 }
 
-void factor()
+void factor( int *ttp)
 {
 	/*
 		factor -> num | string | NIL | TRUE | FALSE
@@ -2569,7 +2628,11 @@ void factor()
 	*/
 
   if ( debugMode) printf( "In factor\n");
+
+  int stp;
+
   if ( isNumber( sym)) {
+    *ttp = inttyp;
     writesym();
   	nextsym();
   }
@@ -2595,38 +2658,52 @@ void factor()
       case lparen:
         writesym();
         nextsym();
-        expr();
+        expr( ttp);
         accept( rparen, 1);
         break;
       case lcurb:
         set();
         break;
   		default:
-  			designator();
-        if ( sym == lparen)
+        LookupId( idbuff, &stp);
+        if ( stp != 0)
         {
-          ActParams();
+          *ttp = symtab[ stp].idtyp;
+    			designator();
+          if ( sym == lparen)
+          {
+            ActParams();
+          }
         }
+        else
+          error( ident, 1);
   	}
   }
   if ( debugMode) printf( "Out factor\n");
 }
 
-void term() 
+void term( int *ttp) 
 {
 	/*
 		term -> factor { mulop factor }
 	*/
 
   if ( debugMode) printf( "In term\n");
-	factor();
+	factor( ttp);
+
+  int ttp1;
 
 	while ( isMulOp( sym))
 	{
+    if ( sym == AND_SYM)
+      checktypes( *ttp, booltyp);
+    else
+      checktypes( *ttp, inttyp);
     writesym();
 		nextsym();
-		factor();
+		factor( &ttp1);
 	}
+  printf( " OMGOMGOMGOMGOMGOMG%d", *ttp);
   if ( debugMode) printf( "Out term\n");
 }
 
@@ -2732,7 +2809,16 @@ void selector()
   		break;
   	case lbrac:
   		nextsym();
-  		ExprList();
+  		//ExprList();
+      int ttp;
+      expr( &ttp);
+
+      while( sym == comma)
+      {
+        writesym();
+        nextsym();
+        expr( &ttp);
+      }
   		accept( rbrac, 147);
   		break;
   	case carat:
@@ -2757,32 +2843,44 @@ void ActParams()
 	*/
 
   if ( debugMode) printf( "In ActParams\n");
+
+  int ttp;
+
 	accept( lparen, 143);
 	if ( sym != rparen)
 	{
-		ExprList();
+		//ExprList();
+    // code from ExprList (so we can call expr with the right params)
+    expr( &ttp);
+
+    while( sym == comma)
+    {
+      writesym();
+      nextsym();
+      expr( &ttp);
+    }
 	}
 
 	accept( rparen, 142);
   if ( debugMode) printf( "Out ActParams\n");
 }
 
-void ExprList() {
-	/*
-		ExprList -> expr { , expr }
-	*/
+// void ExprList() {
+// 	/*
+// 		ExprList -> expr { , expr }
+// 	*/
 
-  if ( debugMode) printf( "In expr\n");
-	expr();
+//   if ( debugMode) printf( "In expr\n");
+// 	expr();
 
-	while( sym == comma)
-	{
-    writesym();
-		nextsym();
-		expr();
-	}
-  if ( debugMode) printf( "Out expr\n");
-}
+// 	while( sym == comma)
+// 	{
+//     writesym();
+// 		nextsym();
+// 		expr();
+// 	}
+//   if ( debugMode) printf( "Out expr\n");
+// }
 
 void ScaleFac()
 {
