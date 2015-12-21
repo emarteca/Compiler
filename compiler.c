@@ -1921,26 +1921,12 @@ void ProcDecl()
   if ( debugMode) printf( "In ProcDecl\n");
 
   int displ = -2; // displ for param addressing
+  int savstptr;
 
-  ProcHead();
-  accept( semic, 151);
-  ProcBody( &displ);
-  accept( ident, 124);
-  //InsertId( idbuff, paramcls);
-
-  ExitScop();
-
-  if ( debugMode) printf( "Out ProcDecl\n");
-
-}
-
-void ProcHead()
-{
   /*
     ProcHead -> PROCEDURE [ Receiver ] identdef [ FormParams ]
   */
 
-  if ( debugMode) printf( "In ProcHeadLOLOL%d\n", scoptab[ currlev]);
   accept( PROCEDURE_SYM, 162);
   
   if ( sym == lparen)
@@ -1963,6 +1949,8 @@ void ProcHead()
   }
 
   EnterScop();
+  savstptr = stptr;
+  
   if ( sym == lparen)
   {
     // first of FormParams
@@ -1973,7 +1961,17 @@ void ProcHead()
     // no param list
     symtab[ procptr].data.p.lastparam = 0;
   }
-  if ( debugMode) printf( "Out ProcHead\n");
+
+  accept( semic, 151);
+  ProcBody( &displ);
+  accept( ident, 124);
+  //InsertId( idbuff, paramcls);
+
+  ExitScop();
+  stptr = savstptr;
+
+  if ( debugMode) printf( "Out ProcDecl\n");
+
 }
 
 void ProcBody( int *displ)
