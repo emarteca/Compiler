@@ -2008,15 +2008,190 @@ void FormParams( int procptr)
   */
 
   if ( debugMode) printf( "In FormParams\n");
+
+  bool isVar;
+  int paramptr, stp, paramtyp;
+
   accept( lparen, 143);
 
   if ( sym != rparen) {
-    FormParamSect();
+
+     /*
+      FormParamSect -> [ VAR ] ident { , ident } : FormType
+    */
+    if ( sym == VAR_SYM)
+    {
+      isVar = true;
+      writesym();
+      nextsym();
+    }
+    else
+    {
+      isVar = false;
+    }
+
+    // accept( ident, 124);
+    if ( sym == ident)
+    {
+      InsertId( idbuff, paramcls);
+      paramptr = stptr;
+      nextsym();
+    }
+    else
+    {
+      error( ident, 124);
+    }
+    
+    
+    while ( sym == comma)
+    {
+      writesym();
+      nextsym();
+      if ( sym == ident)
+      {
+        InsertId( idbuff, paramcls);
+        nextsym();
+      }
+      else
+      {
+        error( ident, 1);
+      }
+    }
+
+    accept( colon, 153);
+    
+    /*
+    FormType -> { ARRAY OF } ( qualident | ProcType )
+    */
+
+    while ( sym == ARRAY_SYM)
+    {
+      writesym();
+      nextsym();
+      accept( OF_SYM, 158);
+    }
+
+    if ( sym == PROCEDURE_SYM) 
+    {
+      ProcType();
+    }
+    else
+    {
+      LookupId( idbuff, &stp);
+      if ( symtab[ stp].Class != typcls)
+      {
+        error( TYPE_SYM, 1);
+      }
+      else
+      {
+        paramtyp = symtab[ stp].idtyp;
+      }
+      nextsym();
+    }
+
+    // end of FormType
+
+    // back-set the types for all the parameters
+    while( paramptr <= stptr)
+    {
+      symtab[ paramptr].idtyp = paramtyp;
+      symtab[ paramptr].data.pa.varparam = isVar;
+      ++ paramptr;
+    }
+
+    // done setting types, back to definition of FormParams
+
     while ( sym == semic)
     {
       writesym();
       nextsym();
-      FormParamSect();
+
+      /*
+        FormParamSect -> [ VAR ] ident { , ident } : FormType
+      */
+
+      if ( sym == VAR_SYM)
+      {
+        isVar = true;
+        writesym();
+        nextsym();
+      }
+      else
+      {
+        isVar = false;
+      }
+
+      // accept( ident, 124);
+      if ( sym == ident)
+      {
+        InsertId( idbuff, paramcls);
+        paramptr = stptr;
+        nextsym();
+      }
+      else
+      {
+        error( ident, 124);
+      }
+      
+      
+      while ( sym == comma)
+      {
+        writesym();
+        nextsym();
+        if ( sym == ident)
+        {
+          InsertId( idbuff, paramcls);
+          nextsym();
+        }
+        else
+        {
+          error( ident, 1);
+        }
+      }
+
+      accept( colon, 153);
+      
+      /*
+      FormType -> { ARRAY OF } ( qualident | ProcType )
+      */
+
+      if ( debugMode) printf( "In FormType\n");
+      while ( sym == ARRAY_SYM)
+      {
+        writesym();
+        nextsym();
+        accept( OF_SYM, 158);
+      }
+
+      if ( sym == PROCEDURE_SYM) 
+      {
+        ProcType();
+      }
+      else
+      {
+        LookupId( idbuff, &stp);
+        if ( symtab[ stp].Class != typcls)
+        {
+          error( TYPE_SYM, 1);
+        }
+        else
+        {
+          paramtyp = symtab[ stp].idtyp;
+        }
+        nextsym();
+      }
+
+      // end of FormType
+
+      // back-set the types for all the parameters
+      while( paramtyp <= stptr)
+      {
+        symtab[ paramptr].idtyp = paramtyp;
+        symtab[ paramptr].data.pa.varparam = isVar;
+        ++ paramptr;
+      }
+
+
     }
     symtab[ procptr].data.p.lastparam = stptr;
   }
@@ -2027,89 +2202,30 @@ void FormParams( int procptr)
   {
     writesym();
     nextsym();
+
+    if ( sym == ident || sym == INTEGER_SYM || sym == REAL_SYM)
+    {
+      int stp, ttpProc;
+    
+      LookupId( idbuff, &stp);
+      if ( symtab[ stp].Class != typcls)
+      {
+        error( TYPE_SYM, 1);
+      }
+      else
+      {
+        symtab[ procptr].idtyp = symtab[ stp].idtyp; // setting return type for proc
+      }
+
+    }
+
     qualident();
   }
   if ( debugMode) printf( "Out FormParams\n");
+
+  printsymtab();
 }
 
-void FormParamSect()
-{
-  /*
-    FormParamSect -> [ VAR ] ident { , ident } : FormType
-  */
-
-  bool isVar; 
-  int paramptr;
-
-  if ( debugMode) printf( "In FormParamSect\n");
-  if ( sym == VAR_SYM)
-  {
-    isVar = true;
-    writesym();
-    nextsym();
-  }
-  else
-  {
-    isVar = false;
-  }
-
-  // accept( ident, 124);
-  if ( sym == ident)
-  {
-    InsertId( idbuff, paramcls);
-    paramptr = stptr;
-    nextsym();
-  }
-  else
-  {
-    error( ident, 124);
-  }
-  
-  
-  while ( sym == comma)
-  {
-    writesym();
-    nextsym();
-    if ( sym == ident)
-    {
-      InsertId( idbuff, paramcls);
-      nextsym();
-    }
-    else
-    {
-      error( ident, 1);
-    }
-  }
-
-  accept( colon, 153);
-  FormType();
-  if ( debugMode) printf( "Out FormParamSect\n");
-}
-
-void FormType()
-{
-  /*
-    FormType -> { ARRAY OF } ( qualident | ProcType )
-  */
-
-  if ( debugMode) printf( "In FormType\n");
-  while ( sym == ARRAY_SYM)
-  {
-    writesym();
-    nextsym();
-    accept( OF_SYM, 158);
-  }
-
-  if ( sym == PROCEDURE_SYM) 
-  {
-    ProcType();
-  }
-  else
-  {
-    qualident();
-  }
-  if ( debugMode) printf( "Out FormType\n");
-}
 
 void ForwardDecl() 
 {
@@ -2597,12 +2713,10 @@ void SimplExpr( int *ttp) {
 	{
     if ( sym == OR_SYM)
     {
-      printf( "WAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
       checktypes( *ttp, booltyp);
     }
     else
     {
-      printf( "WIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII%d", inttyp);
       writesym();
 
       checktypes( *ttp, inttyp);
