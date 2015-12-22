@@ -262,6 +262,8 @@ void printsymtab()
         break;
       case proccls:
         printf( "\t%d", symtab[ i].data.p.paddr);
+        if ( symtab[ i].data.p.resultaddr != 0)
+          printf( "\tresultaddr: %d", symtab[ i].data.p.resultaddr);
         break;
       case varcls:
         printf( "\t%d", symtab[ i].data.v.varaddr);
@@ -1811,7 +1813,7 @@ void ProcType()
   if ( sym == lparen)
   {
     EnterScop();
-    FormParams( 0); // procptr = 0 for now 
+    FormParams( 0, 0); // procptr = 0 for now 
     ExitScop();
   }
   if ( debugMode) printf( "Out ProcType\n");
@@ -1954,7 +1956,7 @@ void ProcDecl()
   if ( sym == lparen)
   {
     // first of FormParams
-    FormParams( procptr);
+    FormParams( procptr, &displ);
   }
   else
   {
@@ -1963,6 +1965,7 @@ void ProcDecl()
   }
 
   accept( semic, 151);
+  displ = 1;
   ProcBody( &displ);
   accept( ident, 124);
   //InsertId( idbuff, paramcls);
@@ -2001,7 +2004,7 @@ void ProcBody( int *displ)
   if ( debugMode) printf( "Out ProcBody\n");
 }
 
-void FormParams( int procptr)
+void FormParams( int procptr, int *displ)
 {
   /*
     FormParams -> '(' [ FormParamSect { ; FormParamSect } ] ')' [ : qualident ]
@@ -2203,10 +2206,10 @@ void FormParams( int procptr)
     writesym();
     nextsym();
 
+    int stp, ttpProc = 0;
+    
     if ( sym == ident || sym == INTEGER_SYM || sym == REAL_SYM)
     {
-      int stp, ttpProc;
-    
       LookupId( idbuff, &stp);
       if ( symtab[ stp].Class != typcls)
       {
@@ -2220,35 +2223,13 @@ void FormParams( int procptr)
     }
 
     qualident();
+
+    printf( "NOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO%d", ttpProc);
+    symtab[ procptr].data.p.resultaddr = *displ - typtab[ symtab[ procptr].idtyp].size - 1; // -1 b/c of static link
   }
   if ( debugMode) printf( "Out FormParams\n");
 
   printsymtab();
-}
-
-
-void ForwardDecl() 
-{
-  /*
-    ForwardDecl -> PROCEDURE ^ [ Receiver ] identdef [ FormParams ]
-  */
-
-  if ( debugMode) printf( "In ForwardDecl\n");
-  accept( PROCEDURE_SYM, 162);
-  accept( carat, 144);
-  // first of receiver is (
-  if ( sym == lparen)
-  {
-    Receiver();
-  }
-
-  identdef( proccls);
-  int procptr = stptr;
-  if ( sym == lparen)
-  {
-    FormParams( procptr);
-  }
-  if ( debugMode) printf( "Out ForwardDecl\n");
 }
 
 void Receiver()
