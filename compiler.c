@@ -6,7 +6,7 @@
 /*
   Oberon scanner + parser + code gen
   Compile:    gcc compiler.c
-  Run:        ./a.out fileToCodeGen
+  Run:        ./a.out fileToCodeGen codeGenOutputFile
 
   Ellen Arteca (0297932)
 */
@@ -51,6 +51,7 @@ Token spsym[ 127];
 
 
 FILE* fileIn;       // file reading in from
+FILE* fileOut;      // file printing code gen to
 char ch;            // current char
 Token sym;          // current symbol
 char inbuff[ 256];  // inbuffsize
@@ -196,6 +197,7 @@ void strcopy( char *toCopy, char* copyTo)
     copyTo[ i] = toCopy[ i];
     ++i;
   }
+  copyTo[ i] = '\0';
 }
 
 
@@ -323,9 +325,11 @@ void LookupId( char* id, int *stp)
 
   do {
     *stp = scoptab[ lev];
-    while( strcmp( symtab[ *stp].idname, id) != 0)
+    while( strcmp( symtab[ *stp].idname, id) != 0)// && symtab[ *stp].previd != 0)
     {
       *stp = symtab[ *stp].previd;
+      // fputs( symtab[ 0].idname, stdout);
+      // printf( "\t");
     }
     -- lev;
   } while( *stp == 0 && lev >= 0);
@@ -725,6 +729,18 @@ void gencode( Opcode o, int l, int a)
   ++ lc;
 }
 
+void listcode(int lc0)
+{
+  //print to file
+  int ilc;
+  for( ilc = lc0; ilc < lc; ++ ilc)
+  {
+    fprintf( fileOut, "%s\t%d\t%d", mnemonic[ code[ ilc].op][ 0], code[ ilc].ld, code[ ilc].ad);
+    fprintf( fileOut, "\n");
+  }
+
+}
+
 // call all methods necessary to set up the scanner 
 void InitCompile() 
 {
@@ -735,6 +751,8 @@ void InitCompile()
   InitErrMsgs();
 
   InitSymTab();
+
+  InitInstrMnemonics();
 } // end InitCompile
 
 // return true if c is a separator
@@ -930,7 +948,7 @@ void scanident()
 } // end scanident
 
 
-// hex number is stored in a buffer
+// hex number is popred in a buffer
 // this takes the current int and puts it in the hex buffer
 // mostly for hex numbers starting with ints which were initially read 
 // into ints
@@ -946,7 +964,7 @@ int rebuffHex( int dec) // returns index to keep adding to
   }
 
   i = 0;
-  do                // go digit per digit and store in hex buffer
+  do                // go digit per digit and popre in hex buffer
   {   
     int curDig = dec%10;
     temp[ i] = (char) (curDig + (int)('0'));
@@ -1068,12 +1086,12 @@ void scannum()
     // hex numbers are dig dig* hex hex* H
     // works b/c decimals digs count as hex
 
-    // first convert the int you have from hex to dec, since we're storing in dec
-    // actually i take it back, let's store hex numbers as 
+    // first convert the int you have from hex to dec, since we're popring in dec
+    // actually i take it back, let's popre hex numbers as 
     // char arrays, then we can print them as hex for output
     int hexInd = rebuffHex( intval); 
 
-    // then, hexInd stores the end of the current int so you can 
+    // then, hexInd popres the end of the current int so you can 
     // keep adding to the buffer
     while( inHexDigits( ch)) 
     {
@@ -2343,7 +2361,7 @@ void StatSeq()
   if ( debugMode) printf( "Out StatSeq\n");
 }
 
-void stat()
+void stat( )
 {
   /*
     stat -> [ AssignStat | ProcCall | IfStat | CaseStat | WhileStat | 
@@ -2351,6 +2369,7 @@ void stat()
   */
 
   if ( debugMode) printf( "In stat\n");
+
   if ( sym == IF_SYM)
   {
     IfStat();
@@ -2376,15 +2395,34 @@ void stat()
     //InsertId( idbuff, varcls);  // TODO check if already defined
                                 // it should break ostensibly if 
                                 // it's a proc call to an undefined proc
-    int ttp;
+    int stp = 0, ttp = 0;
 
     designator();
+
+    LookupId( qidbuff, &stp);
+    // fputs( qidbuff, stdout);
+    // printf( "PLNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN"); 
+
     if ( sym == assign)
     {
       // then it was AssignStat
       writesym();
       nextsym();
       expr( &ttp);
+
+      checktypes( symtab[ stp].idtyp, ttp);
+      switch( symtab[ stp].Class)
+      {
+        case varcls:
+          gencode( pop, currlev - symtab[ stp].idlev, symtab[ stp].data.v.varaddr);
+          break;
+        case paramcls:
+          if( symtab[ stp].data.pa.varparam)
+            gencode( popi, currlev - symtab[ stp].idlev,symtab[ stp].data.pa.paramaddr);
+          else
+            gencode( pop, currlev - symtab[ stp].idlev,symtab[ stp].data.pa.paramaddr);
+          break;
+      }
     }
     else 
     {
@@ -2396,20 +2434,6 @@ void stat()
     }
   }
   if ( debugMode) printf( "Out stat\n");
-}
-
-void AssignStat()
-{
-  /*
-    AssignStat -> designator := expr
-  */
-
-  if ( debugMode) printf( "In AssignStat\n");
-  designator();
-  accept( assign, 133);
-  int ttp;
-  expr( &ttp);
-  if ( debugMode) printf( "Out AssignStat\n");
 }
 
 void ProcCall()
@@ -2627,7 +2651,8 @@ void ForStat()
   int ttp1, ttp2;
 
   accept( FOR_SYM, 169);
-  InsertId( idbuff, varcls);
+  //InsertId( idbuff, varcls);
+
   accept( ident, 124);
   accept( assign, 133);
   expr( &ttp1);
@@ -2728,13 +2753,36 @@ void expr( int *ttp)
   if ( debugMode) printf( "In expr\n");
 	SimplExpr( ttp);
 
-	while ( isRelOp( sym))
+	if ( isRelOp( sym))
 	{
+    Token relop = sym;
     writesym();
 		nextsym();
     int ttp1;
 		SimplExpr( &ttp1);
     checktypes( *ttp, ttp1);
+
+    switch( relop)
+    {
+      case equal:
+        gencode( opr, 0, 8);
+        break;
+      case neq:
+        gencode( opr, 0, 9);
+        break;
+      case lt:
+        gencode( opr, 0, 10);
+        break;
+      case lte:
+        gencode( opr, 0, 11);
+        break;
+      case gt:
+        gencode( opr, 0, 12);
+        break;
+      case gte:
+        gencode( opr, 0, 13);
+        break;
+    }
 	}
   *ttp = booltyp; // for expression always bool
   if ( debugMode) printf( "Out expr\n");
@@ -2746,14 +2794,21 @@ void SimplExpr( int *ttp) {
 	*/
 
   if ( debugMode) printf( "In SimplExpr\n");
+
+  Token addop;
+
 	if ( sym == plus || sym == hyphen)
 	{
+    addop = sym;
     writesym();
 		nextsym();
+    term( ttp);
     checktypes( *ttp, inttyp);
+    if( addop == hyphen)
+      gencode( opr, 0, 2);
 	}
-
-	term( ttp);
+  else
+	 term( ttp);
 
 	while ( isAddOp( sym))
 	{
@@ -2768,11 +2823,25 @@ void SimplExpr( int *ttp) {
       checktypes( *ttp, inttyp);
     }
 
+    addop = sym;
     nextsym();
 
     int ttp1;
 		term( &ttp1);
     checktypes( *ttp, ttp1);
+
+    switch( addop)
+    {
+      case plus:
+        gencode( opr, 0, 3);
+        break;
+      case hyphen:
+        gencode( opr, 0, 4);
+        break;
+      case OR_SYM:
+        gencode( opr, 0, 14);
+        break;
+    }
 	}
   if ( debugMode) printf( "Out SimplExpr\n");
 }
@@ -2791,6 +2860,7 @@ void factor( int *ttp)
 
   if ( isNumber( sym)) {
     *ttp = inttyp;
+    gencode( pshc, 0, intval);
     writesym();
   	nextsym();
   }
@@ -2827,7 +2897,29 @@ void factor( int *ttp)
         if ( stp != 0)
         {
           *ttp = symtab[ stp].idtyp;
-    			designator();
+
+          switch( symtab[ stp].idtyp)
+          {
+            case constcls:
+              gencode( pshc, 0, symtab[ stp].data.c.i);
+              nextsym();
+              break;
+            case varcls:
+              gencode( push, currlev - symtab[ stp].idlev, symtab[ stp].data.v.varaddr);
+              nextsym();
+              break;
+            case paramcls:
+              if ( symtab[ stp].data.pa.varparam)
+                gencode( pshi, currlev - symtab[ stp].idlev, symtab[ stp].data.pa.paramaddr);
+              else
+                gencode( push, currlev - symtab[ stp].idlev, symtab[ stp].data.pa.paramaddr);
+              nextsym();
+              break;
+            case proccls:
+              break; // WAWAWA
+          }
+
+    			designator(); 
           if ( sym == lparen)
           {
             ActParams();
@@ -2857,11 +2949,27 @@ void term( int *ttp)
       checktypes( *ttp, booltyp);
     else
       checktypes( *ttp, inttyp);
+    Token mulop = sym;
     writesym();
 		nextsym();
 		factor( &ttp1);
+
+    switch( mulop)
+    {
+      case star:
+        gencode( opr, 0, 5);
+        break;
+      case slash:
+        gencode( opr, 0, 6);
+        break;
+      case MOD_SYM:
+        gencode( opr, 0, 7);
+        break;
+      case AND_SYM:
+        gencode( opr, 0, 15);
+        break;
+    }
 	}
-  printf( " OMGOMGOMGOMGOMGOMG%d", *ttp);
   if ( debugMode) printf( "Out term\n");
 }
 
@@ -3087,13 +3195,14 @@ int main( int argc, char **argv)
 
    // arg[1] is the first command line arg
 
-   if ( argc != 2) 
+   if ( argc != 3) 
    {
-       fputs( "\nError exiting now\nUsage: ./a.out fileToScan\n\n", stdout);
+       fputs( "\nError exiting now\nUsage: ./a.out fileToCodeGen codeGenOutputFile\n\n", stdout);
        exit( 0);
    }
    
    fileIn = fopen( argv[ 1], "r");
+   fileOut = fopen( argv[ 2], "w");
 
    /*do 
    {
@@ -3105,6 +3214,12 @@ int main( int argc, char **argv)
     nextsym();
     module();
     printsymtab();
+
+    listcode( 0);
+    printf( "\n%d\n", lc);
+
+    fclose( fileIn);
+    fclose( fileOut);
 
    return(0);
 } // end main
