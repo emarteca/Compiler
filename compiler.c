@@ -36,9 +36,16 @@ typedef enum
   lcurb, rcurb, resword, doubledot  
 } Token;
 
+typedef enum
+{
+  opr, push, pshc, psha, pshi, pop, popi,
+  jsr, isp, jmp, jmpc, jmpx, for0, for1, nop
+} Opcode;
+
 const char *reswrd[ 41][ 50];        // array of reserved words
 const char *symname[ 127][ 50];      // array of symbol names
 const char *errmsg[ 256][ 32];       // 256 is errmax 
+const char *mnemonic[ 38][10];       // instruction mnemonics
 Token reswrdsym[ 41];
 Token spsym[ 127]; 
 
@@ -57,7 +64,7 @@ int numdigs;        // number of decimal digits
 
 char hexBuff[ 256]; // let's make the hex numbers have a limit of 256 digs
 
-int inptr;      // pointer to current char in inbuff
+int inptr;          // pointer to current char in inbuff
 int symptr;         // pointer to current symbol in inbuff
 int linelen = 0;    // number of chars on current line
 int linenum = 0;    
@@ -153,6 +160,20 @@ int currlev = 0; // current scope level
 int maxlev = 10; // max scope level
 
 int inttyp, realtyp, booltyp, chartyp;
+
+
+// code gen 
+
+struct vminstr
+{
+  Opcode op;  // operation code
+  int ld;     // static level difference
+  int ad;     // relative displ within stack frame
+};
+
+int lc = 0;
+const int codemax = 1023;      // max code (upper bound for mem)
+struct vminstr code[ 1023];    // code gen'd
 
 
 // method to print the error message corresponding to the index 
@@ -402,6 +423,25 @@ void InitSymTab()
   enterstdident( stdidents[ 13][ 0], stdpcls, 0);         // ODD  
   symtab[ stptr].data.sp.procnum = 1;
 
+}
+
+void InitInstrMnemonics()
+{
+  mnemonic[  opr][ 0] = "opr ";
+  mnemonic[ push][ 0] = "push";
+  mnemonic[ pshc][ 0] = "pshc";
+  mnemonic[ psha][ 0] = "psha";
+  mnemonic[ pshi][ 0] = "pshi";
+  mnemonic[  pop][ 0] = "pop ";
+  mnemonic[ popi][ 0] = "popi";
+  mnemonic[  jsr][ 0] = "jsr ";
+  mnemonic[  isp][ 0] = "isp ";
+  mnemonic[  jmp][ 0] = "jmp ";
+  mnemonic[ jmpc][ 0] = "jmpc";
+  mnemonic[ jmpx][ 0] = "jmpx";
+  mnemonic[ for0][ 0] = "for0";
+  mnemonic[ for1][ 0] = "for1";
+  mnemonic[  nop][ 0] = "nop ";
 }
 
 // initialize error msgs 
@@ -671,6 +711,19 @@ void InitResWrdSyms()
   reswrdsym[ 39] = WITH_SYM;
   reswrdsym[ 40] = INTEGER_SYM;
 } // end InitResWrdSyms
+
+void gencode( Opcode o, int l, int a)
+{
+  if( lc > codemax)
+  {
+    printf( "\nProgram too long - not enough memory!");
+    exit( 0);
+  }
+  code[ lc].op = o;
+  code[ lc].ld = l;
+  code[ lc].ad = a;
+  ++ lc;
+}
 
 // call all methods necessary to set up the scanner 
 void InitCompile() 
@@ -2197,6 +2250,18 @@ void FormParams( int procptr, int *displ)
 
     }
     symtab[ procptr].data.p.lastparam = stptr;
+
+    int lpPtr = symtab[ procptr].data.p.lastparam; // pointer to last param
+    int pttptr = 0;
+
+    while ( lpPtr > procptr)
+    {
+      pttptr = symtab[ lpPtr].idtyp;
+      *displ = *displ - typtab[ pttptr].size;
+      symtab[ lpPtr].data.pa.paramaddr = *displ;
+      -- lpPtr;
+    }
+
   }
 
   accept( rparen, 142);
@@ -2225,7 +2290,7 @@ void FormParams( int procptr, int *displ)
     qualident();
 
     printf( "NOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO%d", ttpProc);
-    symtab[ procptr].data.p.resultaddr = *displ - typtab[ symtab[ procptr].idtyp].size - 1; // -1 b/c of static link
+    symtab[ procptr].data.p.resultaddr = *displ - typtab[ symtab[ procptr].idtyp].size; // -1 b/c of static link (???)
   }
   if ( debugMode) printf( "Out FormParams\n");
 
