@@ -2462,13 +2462,22 @@ void IfStat()
 
   if ( debugMode) printf( "In IfStat\n");
 
-  int ttp;
+  int savlc1, savlc2[ 256], savlc2Count, ttp;
 
   accept( IF_SYM, 163);
   expr( &ttp);
   checktypes( ttp, booltyp);
   accept( THEN_SYM, 136);
+  savlc1 = lc;
+  gencode( jmpc, 0, 0);
   StatSeq();
+
+  savlc2Count = 0;
+  savlc2[ savlc2Count] = lc;
+  ++ savlc2Count;
+
+  gencode( jmp, 0, 0);
+  code[ savlc1].ad = lc;
 
   while ( sym == ELSIF_SYM)
   {
@@ -2477,7 +2486,14 @@ void IfStat()
     expr( &ttp);
     checktypes( ttp, booltyp);
     accept( THEN_SYM, 136);
+    savlc1 = lc;
+    gencode( jmpc, 0, 0);
     StatSeq();
+    savlc2Count = 0;
+    savlc2[ savlc2Count] = lc;
+    ++ savlc2Count;
+    gencode( jmp, 0, 0);
+    code[ savlc1].ad = lc;
   }
 
   if ( sym == ELSE_SYM)
@@ -2485,6 +2501,12 @@ void IfStat()
     writesym();
     nextsym();
     StatSeq();
+  }
+
+  int i;
+  for( i = 0; i < savlc2Count; ++ i)
+  {
+    code[ savlc2[ i]].ad = lc;
   }
 
   accept( END_SYM, 155);
@@ -2603,12 +2625,21 @@ void WhileStat()
   */
 
   if ( debugMode) printf( "In WhileStat\n");
-  accept( WHILE_SYM, 165);
-  int ttp;
+
+  int savlc1, savlc2, ttp;
+
+  accept( WHILE_SYM, 165); // WHAWHA
+
+  savlc1 = lc;                // save addr of code for expr
   expr( &ttp);
   checktypes( ttp, booltyp);
+  savlc2 = lc;                // save addr of next instr for backpatch
+  gencode( jmpc, 0, 0);
   accept( DO_SYM, 166);
   StatSeq();
+
+  gencode( jmp, 0, savlc1); // jump back to expr to check
+  code[ savlc2].ad = lc;
 
   while ( sym == ELSIF_SYM)
   {
