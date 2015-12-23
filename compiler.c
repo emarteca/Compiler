@@ -224,6 +224,9 @@ void checktypes( int ttp1, int ttp2)
 {
   if ( ttp1 != ttp2)
   {
+    printf( "COME ON KILL ME NOW DO IT PLS");
+  fputs( inbuff, stdout);
+  
     error( TYPE_SYM, 1);
   }
 }
@@ -735,7 +738,7 @@ void listcode(int lc0)
   int ilc;
   for( ilc = lc0; ilc < lc; ++ ilc)
   {
-    fprintf( fileOut, "%s\t%d\t%d", mnemonic[ code[ ilc].op][ 0], code[ ilc].ld, code[ ilc].ad);
+    fprintf( fileOut, "%d\t%d\t%d", code[ ilc].op, code[ ilc].ld, code[ ilc].ad);
     fprintf( fileOut, "\n");
   }
 
@@ -1479,12 +1482,18 @@ void module()
 
     EnterScop();
 
+    int savlc = lc;
+    gencode( jmp, 0, 0);
+
     if ( sym == IMPORT_SYM)
     {
     	ImportList();
     }
 
     DeclSeq( &displ);
+
+    code[ savlc].ad = lc;
+    gencode( isp, 0, displ - 1);
 
     if ( sym == BEGIN_SYM)
     {
@@ -1497,6 +1506,9 @@ void module()
 
     accept( END_SYM, 155);
     accept( ident, 124);
+
+    gencode( opr, 0, 0);
+
     accept( per, 129);
 
     if ( debugMode) printf( "Out Module\n");
@@ -2037,25 +2049,20 @@ void ProcDecl()
 
   accept( semic, 151);
   displ = 1;
-  ProcBody( &displ);
-  accept( ident, 124);
-  //InsertId( idbuff, paramcls);
 
-  ExitScop();
-  stptr = savstptr;
+  int savlc1 = lc;
 
-  if ( debugMode) printf( "Out ProcDecl\n");
+  gencode( jmp, 0, 0); // edited later on (placeholder instruction)
 
-}
+  symtab[ procptr].data.p.paddr = lc; // last param
+  code[ savlc1].ad = lc;
+  gencode( isp, 0, displ - 1);
 
-void ProcBody( int *displ)
-{
   /*
     ProcBody -> DeclSeq [ BEGIN StatSeq ] [ RETURN expr ] END
   */
 
-  if ( debugMode) printf( "In ProcBody\n");
-  DeclSeq( displ);
+  DeclSeq( &displ);
   if ( sym == BEGIN_SYM)
   {
     writesym();
@@ -2067,12 +2074,23 @@ void ProcBody( int *displ)
   {
     writesym();
     nextsym();
-    int ttp;
-    expr( &ttp);
+    int ttpRet;
+    expr( &ttpRet);
+    gencode( pop, 0, symtab[ procptr].data.p.resultaddr);
   }
 
+  gencode( opr, 0, 1); // return
+
   accept( END_SYM, 155);
-  if ( debugMode) printf( "Out ProcBody\n");
+
+  accept( ident, 124);
+  //InsertId( idbuff, paramcls);
+
+  ExitScop();
+  stptr = savstptr;
+
+  if ( debugMode) printf( "Out ProcDecl\n");
+
 }
 
 void FormParams( int procptr, int *displ)
@@ -2170,6 +2188,9 @@ void FormParams( int procptr, int *displ)
     {
       symtab[ paramptr].idtyp = paramtyp;
       symtab[ paramptr].data.pa.varparam = isVar;
+      printf( "!!!!!!!!!!!!!!!!!");
+      fputs( symtab[ paramptr].idname, stdout);
+      printf( "omfg%d .... \n", symtab[ paramptr].idtyp);
       ++ paramptr;
     }
 
@@ -2403,14 +2424,77 @@ void stat( )
     // fputs( qidbuff, stdout);
     // printf( "PLNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN"); 
 
-    if ( sym == assign)
+    // deal with "special" idents (In.Int, etc)
+
+    if ( strcmp( "Out.Int", qidbuff) == 0)
+    {
+      // print an integer (or list of ints)
+      accept( lparen, 1);
+      expr( &ttp);
+      gencode( opr, 0, 18);
+
+      while( sym == comma)
+      {
+        nextsym();
+        expr( &ttp);
+        gencode( opr, 0, 18);
+      }
+      accept( rparen, 1);
+    }
+    else if ( strcmp( "In.Int", qidbuff) == 0)
+    {
+      // reads in one int
+      // var must exist already
+      accept( lparen, 1);
+      LookupId( idbuff, &stp);
+      if ( stp != 0)
+      {
+        if ( symtab[ stp].Class == varcls)
+        {
+          gencode( psha, currlev - symtab[ stp].idlev, symtab[ stp].data.v.varaddr);
+          gencode( opr, 0, 17);
+        }
+        else if ( symtab[ stp].Class == paramcls)
+        {
+          gencode( push, currlev - symtab[ stp].idlev, symtab[ stp].data.pa.paramaddr);
+          gencode( opr, 0, 17);
+        }
+        else
+         error( ident, 1);
+      }
+      else
+        error( ident, 1);
+
+      nextsym();
+      accept( rparen, 1);
+    }
+    else if ( strcmp( "In.Int", qidbuff) == 0)
+    {
+      // TODO
+      // for now just skip it
+      nextsym();
+    }
+    else if ( sym == lparen)
+    {
+      // then it was ProcCall
+      int paramlen = 0;
+      ActParams( stp, &paramlen); // this gets rid of the lparen
+
+      gencode( jsr, currlev - symtab[ stp].idlev, symtab[ stp].data.p.paddr);
+      gencode( isp, 0, -paramlen);
+    } 
+    else if ( sym == assign)
     {
       // then it was AssignStat
+      printf( "Entering AssignStat");
+      fputs( inbuff, stdout);
       writesym();
       nextsym();
       expr( &ttp);
 
+      printf( "WHYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY%d", ttp);
       checktypes( symtab[ stp].idtyp, ttp);
+      printf( "OMGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGgg%d%s", symtab[ stp].idtyp, symtab[ stp].idname);
       switch( symtab[ stp].Class)
       {
         case varcls:
@@ -2424,32 +2508,9 @@ void stat( )
           break;
       }
     }
-    else 
-    {
-      // then it was ProcCall
-      if ( sym == lparen)
-      {
-        ActParams();
-      }
-    }
+    printf( "Exiting Assignstat");
   }
   if ( debugMode) printf( "Out stat\n");
-}
-
-void ProcCall()
-{
-  /*
-    ProcCall -> designator [ ActParams ]
-  */
-
-  if ( debugMode) printf( "In ProcCall\n");
-  designator();
-
-  if ( sym == lparen) // first char in ActParams
-  {
-    ActParams(); // don't call nextsym here since '(' part of ActParams
-  }
-  if ( debugMode) printf( "Out ProcCall\n");
 }
 
 void IfStat()
@@ -2626,30 +2687,44 @@ void WhileStat()
 
   if ( debugMode) printf( "In WhileStat\n");
 
-  int savlc1, savlc2, ttp;
+  int savlc1, ttp, savlc2; //savlc2[ 256], savlc2Count;
 
   accept( WHILE_SYM, 165); // WHAWHA
 
   savlc1 = lc;                // save addr of code for expr
-  expr( &ttp);
-  checktypes( ttp, booltyp);
-  savlc2 = lc;                // save addr of next instr for backpatch
+  expr( &ttp);   
+  checktypes( ttp, booltyp);  
+  //savlc2Count = 0;
+  //savlc2[ savlc2Count] = lc;
+  //++ savlc2Count;
+  savlc2 = lc;
   gencode( jmpc, 0, 0);
   accept( DO_SYM, 166);
   StatSeq();
-
   gencode( jmp, 0, savlc1); // jump back to expr to check
   code[ savlc2].ad = lc;
-
+  
   while ( sym == ELSIF_SYM)
   {
     writesym();
     nextsym();
+    //savlc1 = lc;
     expr( &ttp);
-    checktypes( ttp, booltyp);
+    //checktypes( ttp, booltyp);
     accept( DO_SYM, 166);
+    //savlc2Count = 0;
+    //savlc2[ savlc2Count] = lc;
+    //++ savlc2Count;
+    //gencode( jmpc, 0, 0);
     StatSeq();
+    //gencode( jmp, 0, savlc1);
   }
+
+  /*int i;
+  for( i = 0; i < savlc2Count; ++ i)
+  {
+    code[ savlc2[ i]].ad = lc;
+  }*/
 
   accept( END_SYM, 155);
   if ( debugMode) printf( "Out WhileStat\n");
@@ -2662,12 +2737,17 @@ void RepeatStat()
   */
 
   if ( debugMode) printf( "In RepeatStat\n");
+
+  int savlc, ttp;
+
+  savlc = lc;
+
   accept( REPEAT_SYM, 167);
   StatSeq();
   accept( UNTIL_SYM, 168);
-  int ttp;
   expr( &ttp);
   checktypes( ttp, booltyp);
+  gencode( jmpc, 0, savlc);
   if ( debugMode) printf( "Out RepeatStat\n");
 }
 
@@ -2704,77 +2784,6 @@ void ForStat()
   if ( debugMode) printf( "Out ForStat\n");
 }
 
-void LoopStat()
-{
-  /*
-    LoopStat -> LOOP StatSeq END
-  */
-
-  if ( debugMode) printf( "In LoopStat\n");
-  accept( LOOP_SYM, 170);
-  StatSeq();
-  accept( END_SYM, 155);
-  if ( debugMode) printf( "Out LoopStat\n");
-}
-
-void ExitStat()
-{
-  /*
-    ExitStat -> EXIT
-  */
-
-  if ( debugMode) printf( "In ExitStat\n");
-  accept( EXIT_SYM, 171);
-  if ( debugMode) printf( "Out ExitStat\n");
-}
-
-void WithStat()
-{
-	/*
-		WithStat -> WITH guard DO StatSeq
-      				{ | guard DO StatSeq }
-      				[ ELSE StatSeq ] END
-	*/
-
-  if ( debugMode) printf( "In WithStat\n");
-  accept( WITH_SYM, 172);
-  guard();
-  accept( DO_SYM, 166);
-  StatSeq();
-
-  while ( sym == OR_SYM)
-  {
-    writesym();
-    nextsym();
-    guard();
-    accept( DO_SYM, 166);
-    StatSeq();
-  } 
-
-  if ( sym == ELSE_SYM) 
-  {
-    writesym();
-    nextsym();
-    StatSeq();
-  }     			
-
-  accept( END_SYM, 155);	
-  if ( debugMode) printf( "Out WithStat\n");
-}
-
-void guard() 
-{
-	/*
-		guard -> qualident : qualident
-	*/
-
-  if ( debugMode) printf( "In guard\n");
-	qualident();
-	accept( colon, 153);
-	qualident();
-  if ( debugMode) printf( "Out guard\n");
-}
-
 void expr( int *ttp)
 {
 	/*
@@ -2782,7 +2791,7 @@ void expr( int *ttp)
 	*/
 
   if ( debugMode) printf( "In expr\n");
-	SimplExpr( ttp);
+  SimplExpr( ttp);
 
 	if ( isRelOp( sym))
 	{
@@ -2814,8 +2823,8 @@ void expr( int *ttp)
         gencode( opr, 0, 13);
         break;
     }
+    *ttp = booltyp; // for expression always bool
 	}
-  *ttp = booltyp; // for expression always bool
   if ( debugMode) printf( "Out expr\n");
 }
 
@@ -2833,13 +2842,12 @@ void SimplExpr( int *ttp) {
     addop = sym;
     writesym();
 		nextsym();
-    term( ttp);
     checktypes( *ttp, inttyp);
     if( addop == hyphen)
       gencode( opr, 0, 2);
 	}
-  else
-	 term( ttp);
+	 
+  term( ttp);
 
 	while ( isAddOp( sym))
 	{
@@ -2889,6 +2897,8 @@ void factor( int *ttp)
 
   int stp;
 
+  fputs( inbuff, stdout);
+  
   if ( isNumber( sym)) {
     *ttp = inttyp;
     gencode( pshc, 0, intval);
@@ -2896,6 +2906,7 @@ void factor( int *ttp)
   	nextsym();
   }
   else {
+
   	switch( sym)
   	{
   		case string:
@@ -2923,13 +2934,18 @@ void factor( int *ttp)
       case lcurb:
         set();
         break;
-  		default:
+  		case ident:
+        printf( "IIIIIIIIIIIIIIIIIIIIIIIIIIIII");
+    
         LookupId( idbuff, &stp);
         if ( stp != 0)
         {
+          
           *ttp = symtab[ stp].idtyp;
+          printf( "YYYYYYYYYYYYYYYYYYYYYYY%d ......", *ttp);
+          fputs( symtab[ stp].idname, stdout);
 
-          switch( symtab[ stp].idtyp)
+          switch( symtab[ stp].Class)
           {
             case constcls:
               gencode( pshc, 0, symtab[ stp].data.c.i);
@@ -2947,19 +2963,51 @@ void factor( int *ttp)
               nextsym();
               break;
             case proccls:
-              break; // WAWAWA
-          }
+              gencode( pshc, 0, 0);
+              nextsym();
+              int paramlen = 0;
+              if ( sym == lparen) // then there are params
+              {
+                //nextsym();
+                ActParams( stp, &paramlen);
+              }
+              gencode( jsr, currlev - symtab[ stp].idlev, symtab[ stp].data.p.paddr);
+              gencode( isp, 0, -paramlen);
+              break; 
+            case stdpcls: // standard procedures
+              nextsym();
+              accept( lparen, 1);
+              switch( symtab[ stp].data.sp.procnum)
+              {
+                case 0:
+                  // ABS
+                  expr( ttp);
+                  LookupId( idbuff, &stp);
 
-    			designator(); 
-          if ( sym == lparen)
-          {
-            ActParams();
+                  gencode( push, currlev - symtab[ stp].idlev, symtab[ stp].data.v.varaddr);
+                  gencode( pshc, 0, 0); // push 0 on stack
+                  gencode( opr, 0, 10); // check if var < 0
+                  int savlc1 = lc;
+                  gencode( jmpc, 0, 0);
+                  gencode( opr, 0, 2); // negate if value < 0
+                  code[ savlc1].ad = lc; // skip negating if negative
+                  break;
+                case 1: 
+                  // ODD
+                  expr( ttp);
+                  gencode( pshc, 0, 2);
+                  gencode( opr, 0, 7); // div by 2, store output on top of stack
+                  break;
+            }
+            accept( rparen, 1);
+            break;
           }
-        }
-        else
-          error( ident, 1);
+      }
+      break;
   	}
   }
+  fputs( inbuff, stdout);
+  
   if ( debugMode) printf( "Out factor\n");
 }
 
@@ -2970,7 +3018,8 @@ void term( int *ttp)
 	*/
 
   if ( debugMode) printf( "In term\n");
-	factor( ttp);
+
+  factor( ttp);
 
   int ttp1;
 
@@ -2984,7 +3033,7 @@ void term( int *ttp)
     writesym();
 		nextsym();
 		factor( &ttp1);
-
+    checktypes( *ttp, ttp1);
     switch( mulop)
     {
       case star:
@@ -3036,37 +3085,20 @@ void elem()
 	*/
 
   if ( debugMode) printf( "In elem\n");
-	elem();
+	int ttp;
+
+  expr( &ttp);
 
 	if ( sym == doubledot)
 	{
     writesym();
 		nextsym();
-		elem();
+    int ttpS;
+		expr( &ttpS);
+    checktypes( ttp, ttpS);
 	}
   if ( debugMode) printf( "Out elem\n");
 }
-
-// TEMPORARY
-// void call()
-// {
-//   /*
-//     This is acting in temp of the proc call beginning,
-//     to avoid the problem of ( qualident ) in selector vs ( ExprList )
-//     in ActParams.
-//   */
-//   if ( debugMode) printf( "In call\n");
-  
-//   qualident();
-//   if ( sym == per)
-//   {
-//     // then it's a .wte
-//     nextsym();
-//     accept( ident, 1);
-//   }
-
-//   if ( debugMode) printf( "Out call\n");
-// }
 
 void designator()
 {
@@ -3133,7 +3165,7 @@ void selector()
   if ( debugMode) printf( "Out selector\n");
 }
 
-void ActParams()
+void ActParams( int procptr, int *paramlen)
 {
 	/*
 		ActParams -> '(' [ ExprList ] ')'
@@ -3141,81 +3173,98 @@ void ActParams()
 
   if ( debugMode) printf( "In ActParams\n");
 
-  int ttp;
+  int stp, extyp, ttp;
+
+  int nxtparamptr = procptr + 1;
 
 	accept( lparen, 143);
 	if ( sym != rparen)
 	{
 		//ExprList();
     // code from ExprList (so we can call expr with the right params)
-    expr( &ttp);
+
+    if ( symtab[ nxtparamptr].data.pa.varparam)
+    {
+      if ( sym == ident)
+      {
+        LookupId( idbuff, &stp);
+        if ( stp != 0)
+        {
+          checktypes( symtab[ stp].idtyp, symtab[ nxtparamptr].idtyp);
+          if ( symtab[ stp].Class == varcls)
+          {
+            gencode( psha, currlev - symtab[ stp].idlev, symtab[ stp].data.v.varaddr);
+            *paramlen = 1;
+          }
+          else if ( symtab[ stp].Class == paramcls)
+          {
+            gencode( push, currlev - symtab[ stp].idlev, symtab[ stp].data.pa.paramaddr);
+          }
+          else
+          {
+            error( invalid_sym, 1);
+          }
+        } 
+        else
+          error( ident, 1);
+        nextsym();
+      }
+      else
+        error( ident, 1);
+    }
+    else
+    { 
+      expr( &ttp);
+      *paramlen = 1;
+    }
 
     while( sym == comma)
     {
       writesym();
       nextsym();
-      expr( &ttp);
+
+      ++ nxtparamptr;
+
+      if ( symtab[ nxtparamptr].data.pa.varparam)
+      {
+        if ( sym == ident)
+        {
+          LookupId( idbuff, &stp);
+          if ( stp != 0)
+          {
+            checktypes( symtab[ stp].idtyp, symtab[ nxtparamptr].idtyp);
+            if ( symtab[ stp].Class == varcls)
+            {
+              gencode( psha, currlev - symtab[ stp].idlev, symtab[ stp].data.v.varaddr);
+              ++ *paramlen;
+            }
+            else if ( symtab[ stp].Class == paramcls)
+            {
+              gencode( push, currlev - symtab[ stp].idlev, symtab[ stp].data.pa.paramaddr);
+            }
+            else
+            {
+              error( invalid_sym, 1);
+            }
+          } 
+          else
+            error( ident, 1);
+          nextsym();
+        }
+        else
+          error( ident, 1);
+      }
+      else
+      { 
+        expr( &ttp);
+        ++ *paramlen;
+      }
     }
 	}
 
 	accept( rparen, 142);
   if ( debugMode) printf( "Out ActParams\n");
 }
-
-// void ExprList() {
-// 	/*
-// 		ExprList -> expr { , expr }
-// 	*/
-
-//   if ( debugMode) printf( "In expr\n");
-// 	expr();
-
-// 	while( sym == comma)
-// 	{
-//     writesym();
-// 		nextsym();
-// 		expr();
-// 	}
-//   if ( debugMode) printf( "Out expr\n");
-// }
-
-void ScaleFac()
-{
-	/*
-		ScaleFac -> ( E  | D ) [ + | - ] digit { digit }
-	*/
-
-  if ( debugMode) printf( "In ScaleFac\n");
-	if ( strcmp( idbuff, "E") == 0 || strcmp( idbuff, "D") == 0)
-	{
-    writesym();
-		nextsym();
-	}
-	else
-	{
-		error( invalid_sym, 1);
-	}
-
-	if ( sym == plus || sym == hyphen)
-	{
-    writesym();
-		nextsym();
-	}
-
-	accept( int_number, 122); // this is digit { digit }
-  if ( debugMode) printf( "Out ScaleFac\n");
-}
-
-
-
-
-
-
-
-
-
-
-
 
 
 // run the code
