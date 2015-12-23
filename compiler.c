@@ -738,8 +738,7 @@ void listcode(int lc0)
   int ilc;
   for( ilc = lc0; ilc < lc; ++ ilc)
   {
-    fprintf( fileOut, "%d\t%d\t%d", code[ ilc].op, code[ ilc].ld, code[ ilc].ad);
-    fprintf( fileOut, "\n");
+    fprintf( fileOut, "%5d %3d %5d\n", code[ ilc].op, code[ ilc].ld, code[ ilc].ad);
   }
 
 }
@@ -2364,7 +2363,7 @@ void Receiver()
   if ( debugMode) printf( "Out Receiver\n");
 }
 
-void StatSeq()
+void StatSeq( )
 {
   /*
     StatSeq -> stat { ; stat }
@@ -2550,7 +2549,6 @@ void IfStat()
     savlc1 = lc;
     gencode( jmpc, 0, 0);
     StatSeq();
-    savlc2Count = 0;
     savlc2[ savlc2Count] = lc;
     ++ savlc2Count;
     gencode( jmp, 0, 0);
@@ -2687,14 +2685,13 @@ void WhileStat()
 
   if ( debugMode) printf( "In WhileStat\n");
 
-  int savlc1, ttp, savlc2; //savlc2[ 256], savlc2Count;
+  int savlc1, ttp, savlc2, savlc3[ 256], savlc3Count;
 
   accept( WHILE_SYM, 165); // WHAWHA
 
   savlc1 = lc;                // save addr of code for expr
   expr( &ttp);   
   checktypes( ttp, booltyp);  
-  //savlc2Count = 0;
   //savlc2[ savlc2Count] = lc;
   //++ savlc2Count;
   savlc2 = lc;
@@ -2704,6 +2701,8 @@ void WhileStat()
   gencode( jmp, 0, savlc1); // jump back to expr to check
   code[ savlc2].ad = lc;
   
+  savlc3Count = 0;
+  
   while ( sym == ELSIF_SYM)
   {
     writesym();
@@ -2712,19 +2711,25 @@ void WhileStat()
     expr( &ttp);
     //checktypes( ttp, booltyp);
     accept( DO_SYM, 166);
+    savlc1 = lc;
+    gencode( jmpc, 0, 0);
     //savlc2Count = 0;
     //savlc2[ savlc2Count] = lc;
     //++ savlc2Count;
     //gencode( jmpc, 0, 0);
     StatSeq();
+    savlc3[ savlc3Count] = lc;
+    ++ savlc3Count;
+    gencode( jmp, 0, 0);
+    code[ savlc1].ad = lc;
     //gencode( jmp, 0, savlc1);
   }
 
-  /*int i;
-  for( i = 0; i < savlc2Count; ++ i)
+  int i;
+  for( i = 0; i < savlc3Count; ++ i)
   {
-    code[ savlc2[ i]].ad = lc;
-  }*/
+    code[ savlc3[ i]].ad = lc;
+  }
 
   accept( END_SYM, 155);
   if ( debugMode) printf( "Out WhileStat\n");
@@ -2760,26 +2765,73 @@ void ForStat()
   if ( debugMode) printf( "In ForStat\n");
 
   int ttp1, ttp2;
+  int lcvptr, savlc1, savlc2, f;
 
   accept( FOR_SYM, 169);
   //InsertId( idbuff, varcls);
 
   accept( ident, 124);
+  LookupId( idbuff, &lcvptr); 
+  
   accept( assign, 133);
   expr( &ttp1);
+  gencode( pop, currlev - symtab[ lcvptr].idlev, symtab[ lcvptr].data.v.varaddr); // pop into update var mem location
+  f = 1; // this will store the incrementer - assume += 1 by default
+  savlc1 = lc; // this will be where the loop should jump back to after completion
+  // push loop incrementer onto stack
+  gencode( push, currlev - symtab[ lcvptr].idlev, symtab[ lcvptr].data.v.varaddr);
   accept( TO_SYM, 161);
   expr( &ttp2);
   checktypes( ttp1, ttp2);
+
+  int checkPtr = lc; // save b/c we'll need up update if it's downto (>=) or to (<=) (depending on if by is -ve)
+  gencode( opr, 0, 11); // assume it's to unless specified later with the by
+  savlc2 = lc;
+  gencode( jmpc, 0, 0); // also need to change this later once we know the addr
+
+  bool decr = false;
 
   if ( sym == BY_SYM)
   {
     writesym();
     nextsym();
-    ConstExpr();
+    //ConstExpr();
+    if ( sym == hyphen)
+    {
+      // then the by is negative
+      // so, change the varcheck from <= to >=
+      code[ checkPtr].ad = 13; // this is opr for ge
+      nextsym();
+      decr = true;
+    }
+    nextsym(); // now this should be the number
+    f = intval; // this should be read in from the sym
+                // also it'll always be +ve since if neg we read in 
+                // the minus sign already before reading the int
   }
 
   accept( DO_SYM, 166);
+  // can't use the for code in PLx since this doesn't allow the 
+  // possibility of inc/dec by not just 1
+  // savlc1 = lc;
+  // gencode( for0, f, 0);
+  // savlc2 = lc;
   StatSeq();
+
+  gencode( push, currlev - symtab[ lcvptr].idlev, symtab[ lcvptr].data.v.varaddr);
+  gencode( pshc, currlev - symtab[ lcvptr].idlev, f); // incrementer
+  if ( decr)
+    gencode( opr, 0, 4); // dec
+  else
+    gencode( opr, 0, 3); // inc
+
+  // store new value of loop check var
+  gencode( pop, currlev - symtab[ lcvptr].idlev, symtab[ lcvptr].data.v.varaddr);
+  gencode( jmp, 0, savlc1); // go back to start of loop
+
+  code[ savlc2].ad = lc; // point to jmp to if loop condition false
+  //gencode( for1, f, savlc2);
+  //code[ savlc1].ad = lc;
   accept( END_SYM, 155);
   if ( debugMode) printf( "Out ForStat\n");
 }
