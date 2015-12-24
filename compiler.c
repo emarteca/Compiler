@@ -2615,68 +2615,99 @@ void CaseStat()
 
   if ( debugMode) printf( "In CaseStat\n");
 
-  int ttp;
+  // case statements here will be implemented like if statements
+  // (nested if-else-ifs)
+
+  int ttp, stp, savlc1, savlc2, savlc3[ 256], savlc3Count;
 
   accept( CASE_SYM, 164);
+
+  LookupId( idbuff, &stp);
+  if ( stp == 0)
+  {
+    error( ident, 1); // should be defined
+  }
+
   expr( &ttp);
   accept( OF_SYM, 158);
-  Case();
+  Case( &savlc1, &savlc2, stp);
+
+  savlc3Count = 1;
+  savlc3[ savlc3Count] = savlc2;
+  ++ savlc3Count;
 
   while ( sym == OR_SYM)
   {
     writesym();
     nextsym();
-    Case();
+    gencode( lod, currlev - symtab[ stp].idlev, symtab[ stp].data.v.varaddr);
+    Case( &savlc1, &savlc2, stp);
+    savlc3[ savlc3Count] = savlc2;
+    ++ savlc3Count;
   }
 
-  if ( sym == ELSIF_SYM)
+  if ( sym == ELSE_SYM)
   {
     writesym();
     nextsym();
     StatSeq();
   }
+
+  int i;
+  //printf( "OOOOOOOOOOOOOOOOOOOOOOOMMMMMMMMM%d", savlc3Count);
+  for( i = 1; i < savlc3Count; ++ i)     // jump to end of switch from each case
+      code[ savlc3[ i]].ad = lc;
 
   accept( END_SYM, 155);
   if ( debugMode) printf( "Out CaseStat\n");
 
 }
 
-void Case() // uppercase 'Case' since 'case' is reserved in C
+void Case( int *savlc1, int *savlc2, int stp) // uppercase 'Case' since 'case' is reserved in C
 {
   /*
     case -> [ CaseLabList : StatSeq ]
   */
 
   if ( debugMode) printf( "In Case\n");
+
+  int ttp;
+
   // first of CaseLabList is first of LabelRange, which is first of label
   if ( isLabel( sym))  // then, this is ostensibly not a null rule
   {
-    CaseLabList();
+    CaseLabList( savlc1, savlc2, stp, &ttp);
+
+
     accept( colon, 153);
     StatSeq();
+
+    *savlc2 = lc;
+    gencode( jmp, 0, 0);
+    code[ *savlc1].ad = lc;
   }
   if ( debugMode) printf( "Out Case\n");
 }
 
-void CaseLabList()
+void CaseLabList( int *savlc1, int *savlc2, int stp, int *ttp)
 {
   /*
     CaseLabList -> LabelRange { , LabelRange }
   */
 
   if ( debugMode) printf( "In CaseLabList\n");
-  LabelRange();
+  LabelRange( savlc1, savlc2, stp, ttp);
 
   while ( sym == comma)
   {
     writesym();
     nextsym();
-    LabelRange();
+    LabelRange( savlc1, savlc2, stp, ttp);
   }
   if ( debugMode) printf( "Out CaseLabList\n");
 }
 
-void LabelRange()
+void LabelRange( int *savlc1, int *savlc2, int stp, int *ttp)
 {
   /*
     LabelRange -> label [ .. label ]
@@ -2686,27 +2717,45 @@ void LabelRange()
   if ( isLabel( sym))
   {
     writesym();
-    nextsym();
+    if ( isNumber( sym))
+      expr( ttp);
+    else
+      nextsym();
   }
   else 
   {
     error( invalid_sym, 1);
-    return;
   }
 
   if ( sym == doubledot)
   {
+    nextsym();
+    // here, looking at a range x0..x1
+    // we want our value to be >= x0, and <= x1
+    gencode( gteOp, 0, 0);
+    gencode( lod, currlev - symtab[ stp].idlev, symtab[ stp].data.v.varaddr);
     if ( isLabel( sym))
     {
       writesym();
-      nextsym();
+      if ( isNumber( sym))
+      {
+        expr( ttp);
+        gencode( lteOp, 0, 0);
+        gencode( andOp, 0, 0); // AND of the <= x1 and >= x0
+        *savlc1 = lc;
+        gencode( jmpc, 0, 0);
+      }
+      else
+        nextsym();
     }
-    else 
-    {
-      error( invalid_sym, 1);
-      return;
-    } 
   }
+  else 
+  {
+    // not a range
+    gencode( eqOp, 0, 0);
+    *savlc1 = lc;
+    gencode( jmpc, 0, 0);
+  } 
   if ( debugMode) printf( "Out LabelRange\n");
 }
 
