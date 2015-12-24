@@ -38,18 +38,8 @@ typedef enum
 
 typedef enum
 {
-  hlt, ret, neg, add, sub, mulOp, divOp, modOp, 
-  eqOp, neqOp, ltOp, lteOp, gtOp, gteOp, orOp, andOp, notl, 
-  rdi, rdl, wri, wrl, iabs, isqr, 
-  lod, lodc, loda, lodi, sto, stoi, call, isp, 
-  jmp, jmpc, for0, for1, nop
-
-  // from Interpret.p
-  /*( hlt, ret, neg, add, sub, imul, idiv, imod, 
-                eq, ne, lt, le, gt, ge, orl, andl, notl,
-                rdi, rdl, wri, wrl, iabs, isqr,  
-                lod, lodc, loda, lodi, sto, stoi, isp,
-                jmp, jmpc, call, for0, for1, nop) */
+  opr, push, pshc, psha, pshi, pop, popi,
+  jsr, isp, jmp, jmpc, jmpx, for0, for1, nop
 } Opcode;
 
 const char *reswrd[ 41][ 50];        // array of reserved words
@@ -444,43 +434,21 @@ void InitSymTab()
 
 void InitInstrMnemonics()
 {
-  mnemonic[    hlt][ 0] = "hlt";
-  mnemonic[    ret][ 0] = "ret";
-  mnemonic[    neg][ 0] = "neg";
-  mnemonic[    add][ 0] = "add";
-  mnemonic[    sub][ 0] = "sub";
-  mnemonic[  mulOp][ 0] = "imul";
-  mnemonic[  divOp][ 0] = "idiv";
-  mnemonic[  modOp][ 0] = "imod";
-  mnemonic[   eqOp][ 0] = "eq";
-  mnemonic[  neqOp][ 0] = "ne";
-  mnemonic[   ltOp][ 0] = "lt";
-  mnemonic[  lteOp][ 0] = "le";
-  mnemonic[   gtOp][ 0] = "gt";
-  mnemonic[  gteOp][ 0] = "ge";
-  mnemonic[   orOp][ 0] = "or";
-  mnemonic[  andOp][ 0] = "and";
-  mnemonic[   notl][ 0] = "not";
-  mnemonic[   rdi][ 0] = "rdi";
-  mnemonic[   rdl][ 0] = "rdl";
-  mnemonic[   wri][ 0] = "wri";
-  mnemonic[   wrl][ 0] = "wrl";
-  mnemonic[  iabs][ 0] = "iabs";
-  mnemonic[  isqr][ 0] = "isqr";
-  
-  mnemonic[   lod][ 0] = "lod";
-  mnemonic[  lodc][ 0] = "lodc";
-  mnemonic[  loda][ 0] = "loda";
-  mnemonic[  lodi][ 0] = "lodi";
-  mnemonic[   sto][ 0] = "sto ";
-  mnemonic[  stoi][ 0] = "stoi";
-  mnemonic[  call][ 0] = "call";
-  mnemonic[   isp][ 0] = "isp";
-  mnemonic[   jmp][ 0] = "jmp";
-  mnemonic[  jmpc][ 0] = "jmpc";
-  mnemonic[  for0][ 0] = "for0";
-  mnemonic[  for1][ 0] = "for1";
-  mnemonic[   nop][ 0] = "nop";
+  mnemonic[  opr][ 0] = "opr ";
+  mnemonic[ push][ 0] = "push";
+  mnemonic[ pshc][ 0] = "pshc";
+  mnemonic[ psha][ 0] = "psha";
+  mnemonic[ pshi][ 0] = "pshi";
+  mnemonic[  pop][ 0] = "pop ";
+  mnemonic[ popi][ 0] = "popi";
+  mnemonic[  jsr][ 0] = "jsr ";
+  mnemonic[  isp][ 0] = "isp ";
+  mnemonic[  jmp][ 0] = "jmp ";
+  mnemonic[ jmpc][ 0] = "jmpc";
+  mnemonic[ jmpx][ 0] = "jmpx";
+  mnemonic[ for0][ 0] = "for0";
+  mnemonic[ for1][ 0] = "for1";
+  mnemonic[  nop][ 0] = "nop ";
 }
 
 // initialize error msgs 
@@ -1538,7 +1506,7 @@ void module()
     accept( END_SYM, 155);
     accept( ident, 124);
 
-    gencode( hlt, 0, 0);
+    gencode( opr, 0, 0);
 
     accept( per, 129);
 
@@ -1633,7 +1601,6 @@ void DeclSeq( int *displ)
   while ( sym == PROCEDURE_SYM)
   {
     ProcDecl();
-
     accept( semic, 151);
   }
 
@@ -2095,7 +2062,6 @@ void ProcDecl()
   */
 
   DeclSeq( &displ);
-
   if ( sym == BEGIN_SYM)
   {
     writesym();
@@ -2109,10 +2075,10 @@ void ProcDecl()
     nextsym();
     int ttpRet;
     expr( &ttpRet);
-    gencode( sto, 0, symtab[ procptr].data.p.resultaddr);
+    gencode( pop, 0, symtab[ procptr].data.p.resultaddr);
   }
 
-  gencode( ret, 0, 0); // return
+  gencode( opr, 0, 1); // return
 
   accept( END_SYM, 155);
 
@@ -2464,13 +2430,13 @@ void stat( )
       // print an integer (or list of ints)
       accept( lparen, 1);
       expr( &ttp);
-      gencode( wri, 0, 0);
+      gencode( opr, 0, 18);
 
       while( sym == comma)
       {
         nextsym();
         expr( &ttp);
-        gencode( wri, 0, 0);
+        gencode( opr, 0, 18);
       }
       accept( rparen, 1);
     }
@@ -2484,13 +2450,13 @@ void stat( )
       {
         if ( symtab[ stp].Class == varcls)
         {
-          gencode( loda, currlev - symtab[ stp].idlev, symtab[ stp].data.v.varaddr);
-          gencode( rdi, 0, 0);
+          gencode( psha, currlev - symtab[ stp].idlev, symtab[ stp].data.v.varaddr);
+          gencode( opr, 0, 17);
         }
         else if ( symtab[ stp].Class == paramcls)
         {
-          gencode( lod, currlev - symtab[ stp].idlev, symtab[ stp].data.pa.paramaddr);
-          gencode( rdi, 0, 0);
+          gencode( push, currlev - symtab[ stp].idlev, symtab[ stp].data.pa.paramaddr);
+          gencode( opr, 0, 17);
         }
         else
          error( ident, 1);
@@ -2513,7 +2479,7 @@ void stat( )
       int paramlen = 0;
       ActParams( stp, &paramlen); // this gets rid of the lparen
 
-      gencode( call, currlev - symtab[ stp].idlev, symtab[ stp].data.p.paddr);
+      gencode( jsr, currlev - symtab[ stp].idlev, symtab[ stp].data.p.paddr);
       gencode( isp, 0, -paramlen);
     } 
     else if ( sym == assign)
@@ -2531,13 +2497,13 @@ void stat( )
       switch( symtab[ stp].Class)
       {
         case varcls:
-          gencode( sto, currlev - symtab[ stp].idlev, symtab[ stp].data.v.varaddr);
+          gencode( pop, currlev - symtab[ stp].idlev, symtab[ stp].data.v.varaddr);
           break;
         case paramcls:
           if( symtab[ stp].data.pa.varparam)
-            gencode( stoi, currlev - symtab[ stp].idlev,symtab[ stp].data.pa.paramaddr);
+            gencode( popi, currlev - symtab[ stp].idlev,symtab[ stp].data.pa.paramaddr);
           else
-            gencode( sto, currlev - symtab[ stp].idlev,symtab[ stp].data.pa.paramaddr);
+            gencode( pop, currlev - symtab[ stp].idlev,symtab[ stp].data.pa.paramaddr);
           break;
       }
     }
@@ -2724,7 +2690,7 @@ void WhileStat()
   accept( WHILE_SYM, 165); // WHAWHA
 
   savlc1 = lc;                // save addr of code for expr
-  expr( &ttp); 
+  expr( &ttp);   
   checktypes( ttp, booltyp);  
   //savlc2[ savlc2Count] = lc;
   //++ savlc2Count;
@@ -2809,17 +2775,17 @@ void ForStat()
   
   accept( assign, 133);
   expr( &ttp1);
-  gencode( sto, currlev - symtab[ lcvptr].idlev, symtab[ lcvptr].data.v.varaddr); // pop into update var mem location
+  gencode( pop, currlev - symtab[ lcvptr].idlev, symtab[ lcvptr].data.v.varaddr); // pop into update var mem location
   f = 1; // this will store the incrementer - assume += 1 by default
   savlc1 = lc; // this will be where the loop should jump back to after completion
   // push loop incrementer onto stack
-  gencode( lod, currlev - symtab[ lcvptr].idlev, symtab[ lcvptr].data.v.varaddr);
+  gencode( push, currlev - symtab[ lcvptr].idlev, symtab[ lcvptr].data.v.varaddr);
   accept( TO_SYM, 161);
   expr( &ttp2);
   checktypes( ttp1, ttp2);
 
   int checkPtr = lc; // save b/c we'll need up update if it's downto (>=) or to (<=) (depending on if by is -ve)
-  gencode( lteOp, 0, 0); // assume it's to unless specified later with the by
+  gencode( opr, 0, 11); // assume it's to unless specified later with the by
   savlc2 = lc;
   gencode( jmpc, 0, 0); // also need to change this later once we know the addr
 
@@ -2834,7 +2800,7 @@ void ForStat()
     {
       // then the by is negative
       // so, change the varcheck from <= to >=
-      code[ checkPtr].op = gteOp; // this is opr for ge
+      code[ checkPtr].ad = 13; // this is opr for ge
       nextsym();
       decr = true;
     }
@@ -2852,15 +2818,15 @@ void ForStat()
   // savlc2 = lc;
   StatSeq();
 
-  gencode( lod, currlev - symtab[ lcvptr].idlev, symtab[ lcvptr].data.v.varaddr);
-  gencode( lodc, currlev - symtab[ lcvptr].idlev, f); // incrementer
+  gencode( push, currlev - symtab[ lcvptr].idlev, symtab[ lcvptr].data.v.varaddr);
+  gencode( pshc, currlev - symtab[ lcvptr].idlev, f); // incrementer
   if ( decr)
-    gencode( sub, 0, 0); // dec
+    gencode( opr, 0, 4); // dec
   else
-    gencode( add, 0, 0); // inc
+    gencode( opr, 0, 3); // inc
 
   // store new value of loop check var
-  gencode( sto, currlev - symtab[ lcvptr].idlev, symtab[ lcvptr].data.v.varaddr);
+  gencode( pop, currlev - symtab[ lcvptr].idlev, symtab[ lcvptr].data.v.varaddr);
   gencode( jmp, 0, savlc1); // go back to start of loop
 
   code[ savlc2].ad = lc; // point to jmp to if loop condition false
@@ -2886,28 +2852,27 @@ void expr( int *ttp)
 		nextsym();
     int ttp1;
 		SimplExpr( &ttp1);
-
     checktypes( *ttp, ttp1);
 
     switch( relop)
     {
       case equal:
-        gencode( eqOp, 0, 0);
+        gencode( opr, 0, 8);
         break;
       case neq:
-        gencode( neqOp, 0, 0);
+        gencode( opr, 0, 9);
         break;
       case lt:
-        gencode( ltOp, 0, 0);
+        gencode( opr, 0, 10);
         break;
       case lte:
-        gencode( lteOp, 0, 0);
+        gencode( opr, 0, 11);
         break;
       case gt:
-        gencode( gtOp, 0, 0);
+        gencode( opr, 0, 12);
         break;
       case gte:
-        gencode( gteOp, 0, 0);
+        gencode( opr, 0, 13);
         break;
     }
     *ttp = booltyp; // for expression always bool
@@ -2931,7 +2896,7 @@ void SimplExpr( int *ttp) {
 		nextsym();
     checktypes( *ttp, inttyp);
     if( addop == hyphen)
-      gencode( neg, 0, 0);
+      gencode( opr, 0, 2);
 	}
 	 
   term( ttp);
@@ -2959,13 +2924,13 @@ void SimplExpr( int *ttp) {
     switch( addop)
     {
       case plus:
-        gencode( add, 0, 0);
+        gencode( opr, 0, 3);
         break;
       case hyphen:
-        gencode( sub, 0, 0);
+        gencode( opr, 0, 4);
         break;
       case OR_SYM:
-        gencode( orOp, 0, 0);
+        gencode( opr, 0, 14);
         break;
     }
 	}
@@ -2988,8 +2953,7 @@ void factor( int *ttp)
   
   if ( isNumber( sym)) {
     *ttp = inttyp;
-    gencode( lodc, 0, intval);
-
+    gencode( pshc, 0, intval);
     writesym();
   	nextsym();
   }
@@ -3017,7 +2981,6 @@ void factor( int *ttp)
         writesym();
         nextsym();
         expr( ttp);
-
         accept( rparen, 1);
         break;
       case lcurb:
@@ -3037,24 +3000,22 @@ void factor( int *ttp)
           switch( symtab[ stp].Class)
           {
             case constcls:
-              gencode( lodc, 0, symtab[ stp].data.c.i);
+              gencode( pshc, 0, symtab[ stp].data.c.i);
               nextsym();
               break;
             case varcls:
-
-              gencode( lod, currlev - symtab[ stp].idlev, symtab[ stp].data.v.varaddr);
+              gencode( push, currlev - symtab[ stp].idlev, symtab[ stp].data.v.varaddr);
               nextsym();
               break;
             case paramcls:
               if ( symtab[ stp].data.pa.varparam)
-                gencode( lodi, currlev - symtab[ stp].idlev, symtab[ stp].data.pa.paramaddr);
+                gencode( pshi, currlev - symtab[ stp].idlev, symtab[ stp].data.pa.paramaddr);
               else
-                gencode( lod, currlev - symtab[ stp].idlev, symtab[ stp].data.pa.paramaddr);
+                gencode( push, currlev - symtab[ stp].idlev, symtab[ stp].data.pa.paramaddr);
               nextsym();
               break;
             case proccls:
-              gencode( lodc, 0, 0);
-
+              gencode( pshc, 0, 0);
               nextsym();
               int paramlen = 0;
               if ( sym == lparen) // then there are params
@@ -3062,7 +3023,7 @@ void factor( int *ttp)
                 //nextsym();
                 ActParams( stp, &paramlen);
               }
-              gencode( call, currlev - symtab[ stp].idlev, symtab[ stp].data.p.paddr);
+              gencode( jsr, currlev - symtab[ stp].idlev, symtab[ stp].data.p.paddr);
               gencode( isp, 0, -paramlen);
               break; 
             case stdpcls: // standard procedures
@@ -3075,19 +3036,19 @@ void factor( int *ttp)
                   expr( ttp);
                   LookupId( idbuff, &stp);
 
-                  gencode( lod, currlev - symtab[ stp].idlev, symtab[ stp].data.v.varaddr);
-                  gencode( lodc, 0, 0); // push 0 on stack
-                  gencode( ltOp, 0, 0); // check if var < 0
+                  gencode( push, currlev - symtab[ stp].idlev, symtab[ stp].data.v.varaddr);
+                  gencode( pshc, 0, 0); // push 0 on stack
+                  gencode( opr, 0, 10); // check if var < 0
                   int savlc1 = lc;
                   gencode( jmpc, 0, 0);
-                  gencode( neg, 0, 0); // negate if value < 0
+                  gencode( opr, 0, 2); // negate if value < 0
                   code[ savlc1].ad = lc; // skip negating if negative
                   break;
                 case 1: 
                   // ODD
                   expr( ttp);
-                  gencode( lodc, 0, 2);
-                  gencode( modOp, 0, 0); // div by 2, store output on top of stack
+                  gencode( pshc, 0, 2);
+                  gencode( opr, 0, 7); // div by 2, store output on top of stack
                   break;
             }
             accept( rparen, 1);
@@ -3128,16 +3089,16 @@ void term( int *ttp)
     switch( mulop)
     {
       case star:
-        gencode( mulOp, 0, 0);
+        gencode( opr, 0, 5);
         break;
       case slash:
-        gencode( divOp, 0, 0);
+        gencode( opr, 0, 6);
         break;
       case MOD_SYM:
-        gencode( modOp, 0, 0);
+        gencode( opr, 0, 7);
         break;
       case AND_SYM:
-        gencode( andOp, 0, 0);
+        gencode( opr, 0, 15);
         break;
     }
 	}
@@ -3284,12 +3245,12 @@ void ActParams( int procptr, int *paramlen)
           checktypes( symtab[ stp].idtyp, symtab[ nxtparamptr].idtyp);
           if ( symtab[ stp].Class == varcls)
           {
-            gencode( loda, currlev - symtab[ stp].idlev, symtab[ stp].data.v.varaddr);
+            gencode( psha, currlev - symtab[ stp].idlev, symtab[ stp].data.v.varaddr);
             *paramlen = 1;
           }
           else if ( symtab[ stp].Class == paramcls)
           {
-            gencode( lod, currlev - symtab[ stp].idlev, symtab[ stp].data.pa.paramaddr);
+            gencode( push, currlev - symtab[ stp].idlev, symtab[ stp].data.pa.paramaddr);
           }
           else
           {
@@ -3326,12 +3287,12 @@ void ActParams( int procptr, int *paramlen)
             checktypes( symtab[ stp].idtyp, symtab[ nxtparamptr].idtyp);
             if ( symtab[ stp].Class == varcls)
             {
-              gencode( loda, currlev - symtab[ stp].idlev, symtab[ stp].data.v.varaddr);
+              gencode( psha, currlev - symtab[ stp].idlev, symtab[ stp].data.v.varaddr);
               ++ *paramlen;
             }
             else if ( symtab[ stp].Class == paramcls)
             {
-              gencode( lod, currlev - symtab[ stp].idlev, symtab[ stp].data.pa.paramaddr);
+              gencode( push, currlev - symtab[ stp].idlev, symtab[ stp].data.pa.paramaddr);
             }
             else
             {
