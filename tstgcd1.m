@@ -7,7 +7,7 @@ MODULE tstgcd1;
     WHILE m > n DO
       m := m - n
     ELSIF n > m DO
-      n := n - m
+      m := n - m
     END;
     RETURN m
   END gcd;
